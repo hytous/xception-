@@ -56,9 +56,22 @@ class FattyLiver(Dataset):
 
 
 if __name__ == "__main__":
+    """
+    关于pytorch加载数据的流程
+    https://blog.csdn.net/weixin_42469843/article/details/126044188
+    """
+    from torch.utils.data import DataLoader
+
     # 把数据从mat文件中取出
     data = get_data()
     img_batch = data[:, 0]
     img_batch_label = data[:, 1]
+
     # 通过FattyLiver将数据进行加载，返回Dataset对象，包含data和labels
     torch_data = FattyLiver(img_batch, img_batch_label)
+
+    # 通过上述的程序，我们构造了一个数据加载器torch_data，但是还是不能直接
+    # 传入网络中。接下来需要构造数据装载器，产生可迭代的数据，再传入网络中。DataLoader类完成这个工作。
+    # num_workers : 表示加载的时候子进程数
+    dataloader = DataLoader(torch_data, batch_size=4, shuffle=True, drop_last=False, num_workers=0)
+
