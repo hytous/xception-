@@ -1,15 +1,6 @@
-from keras.preprocessing.image import ImageDataGenerator
 from torch.utils.data import Dataset
-# 用于分训练集和验证集
-from sklearn.model_selection import train_test_split
-
-import tensorflow as tf
-
-import cv2
-import os
 
 import numpy as np
-import pandas as pd
 
 # 读取mat文件
 import scipy.io as scio
