@@ -23,6 +23,7 @@ class COCOSegmentation(Dataset):
                  split='train',
                  year='2017'):
         super().__init__()
+        # .format用法https://blog.csdn.net/weixin_37988176/article/details/109376909
         ann_file = os.path.join(base_dir, 'annotations/instances_{}{}.json'.format(split, year))
         ids_file = os.path.join(base_dir, 'annotations/{}_ids_{}.pth'.format(split, year))
         self.img_dir = os.path.join(base_dir, 'images/{}{}'.format(split, year))
