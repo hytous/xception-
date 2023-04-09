@@ -25,7 +25,7 @@ class Trainer(object):
         self.summary = TensorboardSummary(self.saver.experiment_dir)
         self.writer = self.summary.create_summary()
         
-        # Define Dataloader
+        # Define Dataloader  用dataloaders文件夹init文件里，自己写的make_data_loader方法载入数据
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
 
@@ -337,6 +337,7 @@ def main():
             'coco': 30,
             'cityscapes': 200,
             'pascal': 50,
+            'fattyliver': 50,  # 脂肪肝先训练50代
         }
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
@@ -351,6 +352,7 @@ def main():
             'coco': 0.1,
             'cityscapes': 0.01,
             'pascal': 0.007,
+            'fattyliver': 0.007,
         }
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
