@@ -1,5 +1,7 @@
-from dataloaders.datasets import cityscapes, coco, combine_dbs, pascal, sbd
+# 声明一下自己的数据类
+from dataloaders.datasets import cityscapes, coco, combine_dbs, pascal, sbd, fattyliver
 from torch.utils.data import DataLoader
+
 
 def make_data_loader(args, **kwargs):
 
@@ -31,6 +33,15 @@ def make_data_loader(args, **kwargs):
     elif args.dataset == 'coco':
         train_set = coco.COCOSegmentation(args, split='train')
         val_set = coco.COCOSegmentation(args, split='val')
+        num_class = train_set.NUM_CLASSES
+        train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, **kwargs)
+        val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, **kwargs)
+        test_loader = None
+        return train_loader, val_loader, test_loader, num_class
+
+    elif args.dataset == 'fattyliver':
+        train_set = fattyliver.FattyLiver(args, split='train')
+        val_set = fattyliver.FattyLiver(args, split='val')
         num_class = train_set.NUM_CLASSES
         train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, **kwargs)
         val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, **kwargs)
