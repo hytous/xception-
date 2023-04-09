@@ -39,16 +39,31 @@ class FattyLiver(Dataset):
     # 二分类
     NUM_CLASSES = 2
 
-    def __init__(self, args, spilt='train', data_root, data_label):
+    def __init__(self, args, split='train'):
+        super().__init__()
+
         # 初始化函数，得到数据
-        self.data = data_root
-        self.label = data_label
+        if split == 'train':
+            train_data, val_data = get_data()
+            img_batch = train_data[:, 0]
+            img_batch_label = train_data[:, 1]
+            self.data = img_batch
+            self.label = img_batch_label
+        elif split == 'val':
+            train_data, val_data = get_data()
+            img_batch = val_data[:, 0]
+            img_batch_label = val_data[:, 1]
+            self.data = img_batch
+            self.label = img_batch_label
+        self.split = split
+        self.args = args
 
     # index是根据batchsize划分数据后得到的索引，最后将data和对应的labels进行一起返回
     def __getitem__(self, index):
         img_data = self.data[index]
         labels = self.label[index]
-        return img_data, labels
+        sample = {'image': img_data, 'label': labels}
+        return sample
 
     # 该函数返回数据大小长度，目的是DataLoader方便划分，如果不知道大小，DataLoader会一脸懵逼
     def __len__(self):
