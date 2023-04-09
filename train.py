@@ -14,6 +14,7 @@ from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
 
+
 class Trainer(object):
     def __init__(self, args):
         self.args = args
@@ -24,7 +25,7 @@ class Trainer(object):
         # Define Tensorboard Summary 可视化
         self.summary = TensorboardSummary(self.saver.experiment_dir)
         self.writer = self.summary.create_summary()
-        
+
         # Define Dataloader  用dataloaders文件夹init文件里，自己写的make_data_loader方法载入数据
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
@@ -46,7 +47,7 @@ class Trainer(object):
         # Define Criterion
         # whether to use class balanced weights
         if args.use_balanced_weights:
-            classes_weights_path = os.path.join(Path.db_root_dir(args.dataset), args.dataset+'_classes_weights.npy')
+            classes_weights_path = os.path.join(Path.db_root_dir(args.dataset), args.dataset + '_classes_weights.npy')
             if os.path.isfile(classes_weights_path):
                 weight = np.load(classes_weights_path)
             else:
@@ -56,12 +57,12 @@ class Trainer(object):
             weight = None
         self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
         self.model, self.optimizer = model, optimizer
-        
+
         # Define Evaluator
         self.evaluator = Evaluator(self.nclass)
         # Define lr scheduler  学习率调整器
         self.scheduler = LR_Scheduler(args.lr_scheduler, args.lr,
-                                            args.epochs, len(self.train_loader))
+                                      args.epochs, len(self.train_loader))
 
         # Using cuda
         if args.cuda:
@@ -73,7 +74,7 @@ class Trainer(object):
         self.best_pred = 0.0
         if args.resume is not None:
             if not os.path.isfile(args.resume):
-                raise RuntimeError("=> no checkpoint found at '{}'" .format(args.resume))
+                raise RuntimeError("=> no checkpoint found at '{}'".format(args.resume))
             checkpoint = torch.load(args.resume)
             args.start_epoch = checkpoint['epoch']
             if args.cuda:
@@ -94,8 +95,6 @@ class Trainer(object):
         train_loss = 0.0
         self.model.train()
         tbar = tqdm(self.train_loader)  # 进度条，使python进度可视化
-
-
 
         num_img_tr = len(self.train_loader)
         for i, sample in enumerate(tbar):
@@ -130,7 +129,6 @@ class Trainer(object):
                 'optimizer': self.optimizer.state_dict(),
                 'best_pred': self.best_pred,
             }, is_best)
-
 
     def validation(self, epoch):
         self.model.eval()
@@ -178,6 +176,7 @@ class Trainer(object):
                 'best_pred': self.best_pred,
             }, is_best)
 
+
 def main():
     # parser 解析器
     # argparse 模块是 Python 内置的用于命令项选项与参数解析的模块，
@@ -201,7 +200,10 @@ def main():
     接着我们通过对象的add_argument函数来增加参数。
     """
     # 网络骨架 有：残差神经网络、xception神经网络、深度残差网络（drn）、mobilenet网络可以选，默认是残差神经网络
-    parser.add_argument('--backbone', type=str, default='resnet',
+    # parser.add_argument('--backbone', type=str, default='resnet',
+    #                     choices=['resnet', 'xception', 'drn', 'mobilenet'],
+    #                     help='backbone name (default: resnet)')
+    parser.add_argument('--backbone', type=str, default='xception',
                         choices=['resnet', 'xception', 'drn', 'mobilenet'],
                         help='backbone name (default: resnet)')
     # 输出步长 默认是8。是用于图像分割的参数，应该是和ASPP和deeplabc3plus算法相关
@@ -210,11 +212,16 @@ def main():
     parser.add_argument('--out-stride', type=int, default=16,
                         help='network output stride (default: 8)')
     # 选择数据集，应该都是谷歌数据集
-    parser.add_argument('--dataset', type=str, default='pascal',
-                        choices=['pascal', 'coco', 'cityscapes'],
+    # parser.add_argument('--dataset', type=str, default='pascal',
+    #                     choices=['pascal', 'coco', 'cityscapes', 'fattyliver'],  # 加入自己的数据集选项fattyliver
+    #                     help='dataset name (default: pascal)')
+    parser.add_argument('--dataset', type=str, default='fattyliver',
+                        choices=['pascal', 'coco', 'cityscapes', 'fattyliver'],  # 加入自己的数据集选项fattyliver
                         help='dataset name (default: pascal)')
     # 是否使用sbd数据集，默认是用的
-    parser.add_argument('--use-sbd', action='store_true', default=True,
+    # parser.add_argument('--use-sbd', action='store_true', default=True,
+    #                     help='whether to use SBD dataset (default: True)')
+    parser.add_argument('--use-sbd', action='store_true', default=False,
                         help='whether to use SBD dataset (default: True)')
     # 数据加载线程
     """
@@ -223,10 +230,14 @@ def main():
     parser.add_argument('--workers', type=int, default=4,
                         metavar='N', help='dataloader threads')
     # 原图的大小
-    parser.add_argument('--base-size', type=int, default=513,
+    # parser.add_argument('--base-size', type=int, default=513,
+    #                     help='base image size')
+    parser.add_argument('--base-size', type=int, default=636,
                         help='base image size')
     # 裁剪图像大小
-    parser.add_argument('--crop-size', type=int, default=513,
+    # parser.add_argument('--crop-size', type=int, default=513,
+    #                     help='crop image size')
+    parser.add_argument('--crop-size', type=int, default=636,
                         help='crop image size')
     # 是否使用 同步Batch Normalization 默认不用
     """sync bn ，Cross-GPU Synchronized Batch Normalization，
@@ -257,7 +268,10 @@ def main():
     parser.add_argument('--start_epoch', type=int, default=0,
                         metavar='N', help='start epochs (default:0)')
     # 训练时batch的大小
-    parser.add_argument('--batch-size', type=int, default=None,
+    # parser.add_argument('--batch-size', type=int, default=None,
+    #                     metavar='N', help='input batch size for \
+    #                             training (default: auto)')
+    parser.add_argument('--batch-size', type=int, default=5,
                         metavar='N', help='input batch size for \
                                 training (default: auto)')
     # 测试时batch的大小
@@ -286,8 +300,10 @@ def main():
                         help='whether use nesterov (default: False)')
     # cuda, seed and logging
     # 不用cuda训练
+    # parser.add_argument('--no-cuda', action='store_true', default=
+    # False, help='disables CUDA training')
     parser.add_argument('--no-cuda', action='store_true', default=
-                        False, help='disables CUDA training')
+    True, help='disables CUDA training')
     # gpu号 选择用哪个gpu训练 ，输入必须是逗号分隔的整数列表
     parser.add_argument('--gpu-ids', type=str, default='0',
                         help='use which gpu to train, must be a \
@@ -356,9 +372,8 @@ def main():
         }
         args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
 
-
     if args.checkname is None:
-        args.checkname = 'deeplab-'+str(args.backbone)  # deeplab+算法骨架
+        args.checkname = 'deeplab-' + str(args.backbone)  # deeplab+算法骨架
     print(args)
     torch.manual_seed(args.seed)
     trainer = Trainer(args)
@@ -372,5 +387,6 @@ def main():
 
     trainer.writer.close()
 
+
 if __name__ == "__main__":
-   main()
+    main()

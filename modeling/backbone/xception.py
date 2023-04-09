@@ -113,7 +113,8 @@ class AlignedXception(nn.Module):
             raise NotImplementedError
 
         # Entry flow
-        self.conv1 = nn.Conv2d(3, 32, 3, stride=2, padding=1, bias=False)
+        # self.conv1 = nn.Conv2d(3, 32, 3, stride=2, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(10, 32, 3, stride=2, padding=1, bias=False)  # 输入通道数改成10
         self.bn1 = BatchNorm(32)
         self.relu = nn.ReLU(inplace=True)
 
@@ -249,10 +250,14 @@ class AlignedXception(nn.Module):
         model_dict = {}
         state_dict = self.state_dict()
 
+        my_change_flag = 0  # 用来修改第一层的输入通道数
         for k, v in pretrain_dict.items():
             if k in state_dict:
                 if 'pointwise' in k:
                     v = v.unsqueeze(-1).unsqueeze(-1)
+                if my_change_flag == 0:  # 改一下第一层的输入通道数
+                    model_dict[k] = v.resize_([32, 10, 3, 3])
+                    my_change_flag = 1
                 if k.startswith('block11'):
                     model_dict[k] = v
                     model_dict[k.replace('block11', 'block12')] = v
