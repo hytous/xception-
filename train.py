@@ -96,7 +96,7 @@ class Trainer(object):
         self.model.train()
         tbar = tqdm(self.train_loader)  # 进度条，使python进度可视化
 
-        num_img_tr = len(self.train_loader)
+        num_img_tr = len(self.train_loader)  # 载入数据
         for i, sample in enumerate(tbar):
             image, target = sample['image'], sample['label']
             if self.args.cuda:
@@ -302,8 +302,10 @@ def main():
     # 不用cuda训练
     # parser.add_argument('--no-cuda', action='store_true', default=
     # False, help='disables CUDA training')
+    # parser.add_argument('--no-cuda', action='store_true', default=
+    # True, help='disables CUDA training')
     parser.add_argument('--no-cuda', action='store_true', default=
-    True, help='disables CUDA training')
+    False, help='disables CUDA training')
     # gpu号 选择用哪个gpu训练 ，输入必须是逗号分隔的整数列表
     parser.add_argument('--gpu-ids', type=str, default='0',
                         help='use which gpu to train, must be a \
@@ -358,7 +360,8 @@ def main():
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
     if args.batch_size is None:
-        args.batch_size = 4 * len(args.gpu_ids)  # 只有一个gpu的话，默认batch大小为4
+        # args.batch_size = 4 * len(args.gpu_ids)  # 只有一个gpu的话，默认batch大小为4
+        args.batch_size = 5 * len(args.gpu_ids)  # 只有一个gpu的话，默认batch大小为5
 
     if args.test_batch_size is None:
         args.test_batch_size = args.batch_size
@@ -370,10 +373,14 @@ def main():
             'pascal': 0.007,
             'fattyliver': 0.007,
         }
-        args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
+        # .lower()英文全转为小写
+        # args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
+        args.lr = lrs[args.dataset.lower()] / (5 * len(args.gpu_ids)) * args.batch_size
 
+    # if args.checkname is None:
+    #     args.checkname = 'deeplab-' + str(args.backbone)  # deeplab+算法骨架
     if args.checkname is None:
-        args.checkname = 'deeplab-' + str(args.backbone)  # deeplab+算法骨架
+        args.checkname = str(args.backbone)  # 算法骨架
     print(args)
     torch.manual_seed(args.seed)
     trainer = Trainer(args)

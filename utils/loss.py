@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -25,7 +26,13 @@ class SegmentationLosses(object):
         if self.cuda:
             criterion = criterion.cuda()
 
-        loss = criterion(logit, target.long())
+        # 图片没有为图片分割做好标注，所以先随便填充一下，之后换算法或者给图片弄上标注
+        # changed_target = target.
+        changed_target = np.zeros((5, 434, 636))
+        for i in range(5):
+            changed_target[i][0][0] = target[i]
+        changed_target = torch.tensor(changed_target)
+        loss = criterion(logit, changed_target.long())
 
         if self.batch_average:
             loss /= n

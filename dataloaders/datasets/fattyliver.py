@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-
+import torch
 import numpy as np
 
 # 读取mat文件
@@ -25,10 +25,10 @@ def get_data():  # 获取数据
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
         try:
             if i % 11 == 0: #  隔11个数据抽一组作为验证集，验证机中总共5组
-                val_data.append([img_batch, fatclass])
+                val_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
                 i = i + 1
             else:
-                train_data.append([img_batch, fatclass])
+                train_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
         except Exception as e:
             print(e)
     return np.array(train_data), np.array(val_data)
