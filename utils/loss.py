@@ -28,6 +28,7 @@ class SegmentationLosses(object):
         在多分类里，如果有0，1，2，3总共4个类，且batch为1
         某数据为2类，那么它的target的格式为[0, 0, 1, 0]
         然后预测这个数据的output的格式可能是[0.1, 0.3, 0.6, 0.0]
+
         当batch大于1时，target和output就成二维的了
         比如batch=2，其中第一个数据为0类，第二个数据为3类。那target就是
         [1, 0, 0, 0]
