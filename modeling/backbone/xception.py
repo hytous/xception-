@@ -97,7 +97,7 @@ class AlignedXception(nn.Module):
     Modified Alighed Xception
     """
 
-    def __init__(self, output_stride, BatchNorm,
+    def __init__(self, output_stride, BatchNorm, num_classes=21, sync_bn=True, freeze_bn=False,
                  pretrained=True):
         super(AlignedXception, self).__init__()
 
@@ -282,12 +282,48 @@ class AlignedXception(nn.Module):
         state_dict.update(model_dict)
         self.load_state_dict(state_dict)
 
+    # 返回每层需要被训练的参数
+    def get_1x_lr_params(self):
+        modules = [self.backbone]
+        for i in range(len(modules)):
+            # modules[0]里存了所有层的名称、参数等信息
+            for m in modules[i].named_modules():  # modules存的是各个层的名称、参数信息、权重等要被训练的东西,modules[0]有所有层的信息
+                if self.freeze_bn:
+                    if isinstance(m[1], nn.Conv2d):
+                        # 输出m[1]是: 层的类别(参数)
+                        # 比如：Conv2d(10, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+                        for p in m[1].parameters():
+                            # 关于.requires_grad， 需要保留该tensor的梯度信息，用于前向传播。保留的就是要被训练的，不保留的没法训练
+                            # https://blog.csdn.net/weixin_44696221/article/details/104269981
+                            if p.requires_grad:  # 要被训练
+                                yield p
+                else:
+                    if isinstance(m[1], nn.Conv2d) or isinstance(m[1], SynchronizedBatchNorm2d) \
+                            or isinstance(m[1], nn.BatchNorm2d):
+                        for p in m[1].parameters():
+                            if p.requires_grad:
+                                yield p
 
 if __name__ == "__main__":
     import torch
 
     model = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
-    input = torch.rand(1, 3, 512, 512)
+    # input = torch.rand(1, 3, 512, 512)
+    input = torch.rand(1, 10, 512, 512)
     output, low_level_feat = model(input)
+    # modules = [model]
+    # # print(len(modules))  # 用来理解get_1x_lr_params在干嘛
+    # for i in range(len(modules)):
+    #     for m in modules[i].named_modules():  # modules存的是各个层的名称、参数信息,modules[0]是所有层的信息
+    #         # print("m是: ", m)
+    #         # m[1]是层的类别(参数)
+    #         # 诸如：Conv2d(10, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False) 这样的
+    #         if isinstance(m[1], nn.Conv2d):
+    #             # for p in m[1].parameters():
+    #             #     print("p是:", p)
+    #             #     if p.requires_grad:
+    #             #         yield p
+
     print(output.size())
     print(low_level_feat.size())
+
