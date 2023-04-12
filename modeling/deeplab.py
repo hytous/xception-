@@ -39,14 +39,16 @@ class DeepLab(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 m.eval()
 
+    # 返回每层需要被训练的参数
     def get_1x_lr_params(self):
         modules = [self.backbone]
         for i in range(len(modules)):
+            # modules[0]里存了所有层的名称、参数等信息
             for m in modules[i].named_modules():
                 if self.freeze_bn:
                     if isinstance(m[1], nn.Conv2d):
                         for p in m[1].parameters():
-                            if p.requires_grad:
+                            if p.requires_grad:  # 要被训练
                                 yield p
                 else:
                     if isinstance(m[1], nn.Conv2d) or isinstance(m[1], SynchronizedBatchNorm2d) \
@@ -62,6 +64,8 @@ class DeepLab(nn.Module):
                 if self.freeze_bn:
                     if isinstance(m[1], nn.Conv2d):
                         for p in m[1].parameters():
+                            # 关于.requires_grad， 需要保留该tensor的梯度信息，用于前向传播
+                            # https://blog.csdn.net/weixin_44696221/article/details/104269981
                             if p.requires_grad:
                                 yield p
                 else:

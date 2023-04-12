@@ -7,6 +7,7 @@ from mypath import Path
 from dataloaders import make_data_loader
 from modeling.sync_batchnorm.replicate import patch_replication_callback
 from modeling.deeplab import *
+from modeling.backbone.xception import *  # 声明模型
 from utils.loss import SegmentationLosses
 from utils.calculate_weights import calculate_weigths_labels
 from utils.lr_scheduler import LR_Scheduler
@@ -31,16 +32,22 @@ class Trainer(object):
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
 
         # Define network
-        model = DeepLab(num_classes=self.nclass,
-                        backbone=args.backbone,
+        # model = DeepLab(num_classes=self.nclass,
+        #                 backbone=args.backbone,
+        #                 output_stride=args.out_stride,
+        #                 sync_bn=args.sync_bn,
+        #                 freeze_bn=args.freeze_bn)
+        model = AlignedXception(num_classes=self.nclass,
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn)
 
+        # 获得每层的参数，并规定学习率
         train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
                         {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
 
         # Define Optimizer
+        # 将每层的参数传到优化器里，用随机梯度下降算法来优化
         optimizer = torch.optim.SGD(train_params, momentum=args.momentum,
                                     weight_decay=args.weight_decay, nesterov=args.nesterov)  # 随机梯度下降
 
@@ -66,6 +73,7 @@ class Trainer(object):
 
         # Using cuda
         if args.cuda:
+            # 使用nn.DataParallel函数来用多个GPU来加速训练
             self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
             patch_replication_callback(self.model)
             self.model = self.model.cuda()
@@ -218,7 +226,7 @@ def main():
     parser.add_argument('--dataset', type=str, default='fattyliver',
                         choices=['pascal', 'coco', 'cityscapes', 'fattyliver'],  # 加入自己的数据集选项fattyliver
                         help='dataset name (default: pascal)')
-    # 是否使用sbd数据集，默认是用的
+    # 是否使用sbd数据集，默认是用的,我不用
     # parser.add_argument('--use-sbd', action='store_true', default=True,
     #                     help='whether to use SBD dataset (default: True)')
     parser.add_argument('--use-sbd', action='store_true', default=False,
