@@ -43,8 +43,9 @@ class Trainer(object):
                         freeze_bn=args.freeze_bn)
 
         # 获得每层的参数，并规定学习率
-        train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
-                        {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
+        # train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
+        #                 {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
+        train_params = {'params': model.get_1x_lr_params(), 'lr': args.lr}
 
         # Define Optimizer
         # 将每层的参数传到优化器里，用随机梯度下降算法来优化
@@ -57,12 +58,13 @@ class Trainer(object):
             classes_weights_path = os.path.join(Path.db_root_dir(args.dataset), args.dataset + '_classes_weights.npy')
             if os.path.isfile(classes_weights_path):
                 weight = np.load(classes_weights_path)
-            else:
+            else:  # 没有预先定好的权重文件就自己按比例算一下
                 weight = calculate_weigths_labels(args.dataset, self.train_loader, self.nclass)
             weight = torch.from_numpy(weight.astype(np.float32))
         else:
             weight = None
         self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
+        # self.criterion = NLLLoss(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
         self.model, self.optimizer = model, optimizer
 
         # Define Evaluator
@@ -141,7 +143,7 @@ class Trainer(object):
     def validation(self, epoch):
         self.model.eval()
         self.evaluator.reset()
-        tbar = tqdm(self.val_loader, desc='\r')
+        tbar = tqdm(self.val_loader, desc='\r')  # 进度条
         test_loss = 0.0
         for i, sample in enumerate(tbar):
             image, target = sample['image'], sample['label']
