@@ -36,10 +36,17 @@ class Decoder(nn.Module):
         low_level_feat = self.bn1(low_level_feat)
         low_level_feat = self.relu(low_level_feat)
 
+        # print("一开始x的size是: ", x.size())  # torch.Size([5, 256, 28, 40])
+        # 利用插值方法，对输入的张量数组进行上\下采样操作，换句话说就是科学合理地改变数组的尺寸大小，尽量保持数据完整。
+        # https://blog.csdn.net/qq_50001789/article/details/120297401
+        # print("low_level_feat.size()是: ", low_level_feat.size())  # torch.Size([5, 48, 109, 159])
+        # print("low_level_feat.size()[2:]是: ", low_level_feat.size()[2:])  # torch.Size([109, 159])
         x = F.interpolate(x, size=low_level_feat.size()[2:], mode='bilinear', align_corners=True)
+        # print("interpolate完x的size是: ", x.size())  # torch.Size([5, 256, 109, 159])
         x = torch.cat((x, low_level_feat), dim=1)
+        # print("cat完x的size是: ", x.size())  # torch.Size([5, 304, 109, 159])
         x = self.last_conv(x)
-
+        # print("最后x的size是: ", x.size())  # torch.Size([5, 2, 109, 159])
         return x
 
     def _init_weight(self):

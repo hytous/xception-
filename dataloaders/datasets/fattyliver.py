@@ -12,7 +12,9 @@ img_kuan = 636
 
 def get_data():  # 获取数据
     train_data = []
+    train_label = []
     val_data = []
+    val_label = []
     # 可以用matlab查看数据形式
     allmatdatas = scio.loadmat(
         'D:\S\study\大四\毕设\代码\pytorch-deeplab-xception-master\dataloaders'
@@ -24,14 +26,18 @@ def get_data():  # 获取数据
         fatclass = matdata['class'][0, 0]  # 是否是脂肪肝，用0或1表示 [0,0]是因为数据格式是：[[0]]这样的，可能是tensor吧
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
         try:
-            if i % 11 == 0: #  隔11个数据抽一组作为验证集，验证机中总共5组
-                val_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
+            if i % 11 == 0:  # 隔11个数据抽一组作为验证集，验证机中总共5组
+                # val_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
+                val_data.append(img_batch.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
+                val_label.append(fatclass)
                 i = i + 1
             else:
-                train_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
+                # train_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
+                train_data.append(img_batch.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
+                train_label.append(fatclass)
         except Exception as e:
             print(e)
-    return np.array(train_data), np.array(val_data)
+    return np.array(train_data), np.array(train_label), np.array(val_data), np.array(val_label)
 
 
 # 定义FattyLiver类，继承Dataset方法，并重写__getitem__()和__len__()方法
@@ -41,18 +47,18 @@ class FattyLiver(Dataset):
 
     def __init__(self, args, split='train'):
         super().__init__()
-
+        train_data, train_label, val_data, val_label = get_data()
         # 初始化函数，得到数据
         if split == 'train':
-            train_data, val_data = get_data()
-            img_batch = train_data[:, 0]
-            img_batch_label = train_data[:, 1]
+            # img_batch = train_data[:, 0]
+            # img_batch_label = train_data[:, 1]
+            img_batch = train_data
+            img_batch_label = train_label
             self.data = img_batch
             self.label = img_batch_label
         elif split == 'val':
-            train_data, val_data = get_data()
-            img_batch = val_data[:, 0]
-            img_batch_label = val_data[:, 1]
+            img_batch = val_data
+            img_batch_label = val_label
             self.data = img_batch
             self.label = img_batch_label
         self.split = split

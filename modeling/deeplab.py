@@ -24,12 +24,19 @@ class DeepLab(nn.Module):
 
         self.freeze_bn = freeze_bn
 
+        self.flat = nn.Flatten()
+        self.fc = nn.Linear(5418, 4, bias=False)
+
     def forward(self, input):
         x, low_level_feat = self.backbone(input)
         x = self.aspp(x)
-        x = self.decoder(x, low_level_feat)
-        x = F.interpolate(x, size=input.size()[2:], mode='bilinear', align_corners=True)
+        x = self.decoder(x, low_level_feat)  # torch.Size([5, 2, 109, 159])
+        x = F.interpolate(x, size=input.size()[2:], mode='bilinear', align_corners=True)  # 将后两维变回初始的长宽[5, 2, 434, 636]
 
+        x = F.interpolate(x, size=[43, 63], mode='bilinear', align_corners=True)  # 将后两维变回初始的长宽[5, 2, 43, 63]
+        x = self.flat(x)
+        # print("flat后x的shape是: ", x.shape)  # [5, 5418]
+        x = self.fc(x)
         return x
 
     def freeze_bn(self):

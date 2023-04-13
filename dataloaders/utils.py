@@ -11,6 +11,10 @@ def decode_seg_map_sequence(label_masks, dataset='pascal'):
     return rgb_masks
 
 
+def get_fattyliver_labels():
+    pass
+
+
 def decode_segmap(label_mask, dataset, plot=False):
     """Decode segmentation class labels into a color image
     Args:
@@ -23,10 +27,13 @@ def decode_segmap(label_mask, dataset, plot=False):
     """
     if dataset == 'pascal' or dataset == 'coco':
         n_classes = 21
-        label_colours = get_pascal_labels()
+        label_colours = get_pascal_labels()  # 每一类用什么颜色表示
     elif dataset == 'cityscapes':
         n_classes = 19
         label_colours = get_cityscapes_labels()
+    elif dataset == 'fattyliver':  # 脂肪肝数据集
+        n_classes = 4
+        label_colours = get_fattyliver_labels()
     else:
         raise NotImplementedError
 
@@ -93,9 +100,36 @@ def get_pascal_labels():
     Returns:
         np.ndarray with dimensions (21, 3)
     """
-    return np.asarray([[0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
-                       [0, 0, 128], [128, 0, 128], [0, 128, 128], [128, 128, 128],
-                       [64, 0, 0], [192, 0, 0], [64, 128, 0], [192, 128, 0],
-                       [64, 0, 128], [192, 0, 128], [64, 128, 128], [192, 128, 128],
-                       [0, 64, 0], [128, 64, 0], [0, 192, 0], [128, 192, 0],
+    return np.asarray([[0, 0, 0],
+                       [128, 0, 0],
+                       [0, 128, 0],
+                       [128, 128, 0],
+                       [0, 0, 128],
+                       [128, 0, 128],
+                       [0, 128, 128],
+                       [128, 128, 128],
+                       [64, 0, 0],
+                       [192, 0, 0],
+                       [64, 128, 0],
+                       [192, 128, 0],
+                       [64, 0, 128],
+                       [192, 0, 128],
+                       [64, 128, 128],
+                       [192, 128, 128],
+                       [0, 64, 0],
+                       [128, 64, 0],
+                       [0, 192, 0],
+                       [128, 192, 0],
                        [0, 64, 128]])
+
+
+def get_fattyliver_labels():
+    """Load the mapping that associates fattyliver classes with label colors
+    Returns:
+        np.ndarray with dimensions (4, 3)
+    """
+    return np.asarray([[0, 0, 0],
+                       [128, 0, 0],
+                       [0, 128, 0],
+                       [128, 128, 0],
+                      ])

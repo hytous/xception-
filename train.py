@@ -32,20 +32,20 @@ class Trainer(object):
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
 
         # Define network
-        # model = DeepLab(num_classes=self.nclass,
-        #                 backbone=args.backbone,
-        #                 output_stride=args.out_stride,
-        #                 sync_bn=args.sync_bn,
-        #                 freeze_bn=args.freeze_bn)
-        model = AlignedXception(num_classes=self.nclass,
+        model = DeepLab(num_classes=self.nclass,
+                        backbone=args.backbone,
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn)
+        # model = AlignedXception(num_classes=self.nclass,
+        #                 output_stride=args.out_stride,
+        #                 sync_bn=args.sync_bn,
+        #                 freeze_bn=args.freeze_bn)
 
         # 获得每层的参数，并规定学习率
-        # train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
-        #                 {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
-        train_params = {'params': model.get_1x_lr_params(), 'lr': args.lr}
+        train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
+                        {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
+        # train_params = {'params': model.get_1x_lr_params(), 'lr': args.lr}
 
         # Define Optimizer
         # 将每层的参数传到优化器里，用随机梯度下降算法来优化
@@ -64,7 +64,7 @@ class Trainer(object):
         else:
             weight = None
         self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
-        # self.criterion = NLLLoss(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
+        # self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda, nclass=self.nclass).build_loss(mode=args.loss_type)
         self.model, self.optimizer = model, optimizer
 
         # Define Evaluator
@@ -109,11 +109,16 @@ class Trainer(object):
         num_img_tr = len(self.train_loader)  # 载入数据
         for i, sample in enumerate(tbar):
             image, target = sample['image'], sample['label']
+            # print("是否使用cuda", self.args.cuda)  # False 没有用cuda
             if self.args.cuda:
                 image, target = image.cuda(), target.cuda()
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
             self.optimizer.zero_grad()
-            output = self.model(image)
+            output = self.model(image)  # 该多加一个全连接层，把output变成和target一样的数据形式
+            # print("output是这样的", output.size())  # [5, 2, 434, 636]
+            # print("flatten后output是这样的", output.size())  # [5, 4]
+            # print("output是这样的: ", output)  # 是一个四维的tensor，因为这个是语义分割的output，是[chanal, mask]，其中
+            # mask是三维的，mask就是这个数据的标签(语义分割每个像素点上都要打标签)
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
@@ -124,7 +129,16 @@ class Trainer(object):
             # Show 10 * 3 inference results each epoch
             if i % (num_img_tr // 10) == 0:
                 global_step = i + num_img_tr * epoch
-                self.summary.visualize_image(self.writer, self.args.dataset, image, target, output, global_step)
+
+                image0 = image[:, 0, :, :]  # 显示第一张图
+                # print("image0的shape", image0.size())
+                # image0 = np.expand_dims(image0, axis=0)  # 扩充一维
+                # print("变成tensor前image0是这样的", image0)
+                image0 = torch.tensor(image0)
+                # print("变成tensor后image0是这样的", image0)
+
+                # self.summary.visualize_image(self.writer, self.args.dataset, image, target, output, global_step)
+                self.summary.visualize_image(self.writer, self.args.dataset, image0, target, output, global_step)  # 显示图
 
         self.writer.add_scalar('train/total_loss_epoch', train_loss, epoch)
         print('[Epoch: %d, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))

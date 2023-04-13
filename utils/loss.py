@@ -34,19 +34,22 @@ class SegmentationLosses(object):
         [1, 0, 0, 0]
         [0, 0, 0, 1]
         """
-        n, c, h, w = logit.size()
+        # n, c, h, w = logit.size()
+        n, c = logit.size()  # n为batch数，c为类数
         criterion = nn.CrossEntropyLoss(weight=self.weight, ignore_index=self.ignore_index,
                                         size_average=self.size_average)
         if self.cuda:
             criterion = criterion.cuda()
 
-        # 图片没有为图片分割做好标注，所以先随便填充一下，之后换算法或者给图片弄上标注
-        changed_target = target
-        changed_target = np.zeros((5, 434, 636))
-        for i in range(5):
-            changed_target[i][0][0] = target[i]
-        changed_target = torch.tensor(changed_target)
-        loss = criterion(logit, changed_target.long())
+        # batchsize现在为5，到时候可能要改
+        # 构建一下target的概率数组
+        # batch_size = 5
+        # changed_target = np.zeros((batch_size, 2))
+        # for i in range(batch_size):
+        #     changed_target[i][target[i]] = 1  # 已知属于该类，概率为1
+        # changed_target = torch.tensor(changed_target)
+        # loss = criterion(logit, changed_target.long())
+        loss = criterion(logit, target.long())
 
         if self.batch_average:
             loss /= n

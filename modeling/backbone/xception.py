@@ -96,8 +96,8 @@ class AlignedXception(nn.Module):
     """
     Modified Alighed Xception
     """
-
-    def __init__(self, output_stride, BatchNorm, num_classes=21, sync_bn=True, freeze_bn=False,
+    # 因为多显卡和但显卡训练的BatchNorm不同，所以要从外部决定用哪种，然后输入进来用。避免在这个代码里大量的修改。
+    def __init__(self, output_stride, BatchNorm, num_classes=4, sync_bn=True, freeze_bn=False,
                  pretrained=True):
         super(AlignedXception, self).__init__()
 
@@ -174,6 +174,8 @@ class AlignedXception(nn.Module):
         self.conv5 = SeparableConv2d(1536, 2048, 3, stride=1, dilation=exit_block_dilations[1], BatchNorm=BatchNorm)
         self.bn5 = BatchNorm(2048)
 
+        # self.fc = nn.Linear(2048, 4, bias=False)
+
         # Init weights
         self._init_weight()
 
@@ -230,6 +232,8 @@ class AlignedXception(nn.Module):
         x = self.conv5(x)
         x = self.bn5(x)
         x = self.relu(x)
+
+        # x = self.fc(x)
 
         return x, low_level_feat
 
