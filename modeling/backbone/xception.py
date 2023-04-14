@@ -33,20 +33,26 @@ class SeparableConv2d(nn.Module):
 
 
 class Block(nn.Module):
+    # reps表示此block里有几个相同的relu+SeparableConv2d，然后用for进行堆叠避免代码冗余
+    # 这里的stride只有在最后的最大池化层用到，所以这个stride是表示池化的stride
+    # grow表示是先改变通道数还是最后改变通道数
     def __init__(self, inplanes, planes, reps, stride=1, dilation=1, BatchNorm=None,
                  start_with_relu=True, grow_first=True, is_last=False):
         super(Block, self).__init__()
 
-        if planes != inplanes or stride != 1:
+        if planes != inplanes or stride != 1:  # 输入通道数不等于输出通道数，或者卷积步长不为1，说明要改变通道数或者改变图片大小
+            # 因为只有最大池化层会按照输入的stride改一次图像大小，所以RES只需要按照输入的stride改一次图像大小
+            # block的通道数只会改变一次所以res也只需改一次
             self.skip = nn.Conv2d(inplanes, planes, 1, stride=stride, bias=False)
             self.skipbn = BatchNorm(planes)
         else:
             self.skip = None
 
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU(inplace=True)  # 设置激活函数，增加非线性
         rep = []
 
         filters = inplanes
+        # 如果先改变通道数
         if grow_first:
             rep.append(self.relu)
             rep.append(SeparableConv2d(inplanes, planes, 3, 1, dilation, BatchNorm=BatchNorm))
@@ -58,11 +64,14 @@ class Block(nn.Module):
             rep.append(SeparableConv2d(filters, filters, 3, 1, dilation, BatchNorm=BatchNorm))
             rep.append(BatchNorm(filters))
 
+        # Entry flow的第一个block没有先relu，所以去掉第一个relu层
         if not grow_first:
+            # 如果后改变通道数
             rep.append(self.relu)
             rep.append(SeparableConv2d(inplanes, planes, 3, 1, dilation, BatchNorm=BatchNorm))
             rep.append(BatchNorm(planes))
 
+        # 最大池化层MaxPooling
         if stride != 1:
             rep.append(self.relu)
             rep.append(SeparableConv2d(planes, planes, 3, 2, BatchNorm=BatchNorm))
@@ -76,6 +85,7 @@ class Block(nn.Module):
         if not start_with_relu:
             rep = rep[1:]
 
+        #  torch.nn.Sequential是一个Sequential容器,模块将按照构造函数中传递的顺序添加到模块中。另外，也可以传入一个有序模块。
         self.rep = nn.Sequential(*rep)
 
     def forward(self, inp):
@@ -97,8 +107,7 @@ class AlignedXception(nn.Module):
     Modified Alighed Xception
     """
     # 因为多显卡和但显卡训练的BatchNorm不同，所以要从外部决定用哪种，然后输入进来用。避免在这个代码里大量的修改。
-    def __init__(self, output_stride, BatchNorm, num_classes=4, sync_bn=True, freeze_bn=False,
-                 pretrained=True):
+    def __init__(self, output_stride, BatchNorm, pretrained=True):
         super(AlignedXception, self).__init__()
 
         if output_stride == 16:
@@ -162,19 +171,23 @@ class AlignedXception(nn.Module):
                              BatchNorm=BatchNorm, start_with_relu=True, grow_first=True)
 
         # Exit flow
-        self.block20 = Block(728, 1024, reps=2, stride=1, dilation=exit_block_dilations[0],
+        # self.block20 = Block(728, 1024, reps=2, stride=1, dilation=exit_block_dilations[0],
+        #                      BatchNorm=BatchNorm, start_with_relu=True, grow_first=False, is_last=True)
+        self.block20 = Block(728, 1024, reps=2, stride=2, dilation=exit_block_dilations[0],
                              BatchNorm=BatchNorm, start_with_relu=True, grow_first=False, is_last=True)
 
         self.conv3 = SeparableConv2d(1024, 1536, 3, stride=1, dilation=exit_block_dilations[1], BatchNorm=BatchNorm)
         self.bn3 = BatchNorm(1536)
 
-        self.conv4 = SeparableConv2d(1536, 1536, 3, stride=1, dilation=exit_block_dilations[1], BatchNorm=BatchNorm)
-        self.bn4 = BatchNorm(1536)
+        # self.conv4 = SeparableConv2d(1536, 1536, 3, stride=1, dilation=exit_block_dilations[1], BatchNorm=BatchNorm)
+        # self.bn4 = BatchNorm(1536)
 
         self.conv5 = SeparableConv2d(1536, 2048, 3, stride=1, dilation=exit_block_dilations[1], BatchNorm=BatchNorm)
         self.bn5 = BatchNorm(2048)
 
-        # self.fc = nn.Linear(2048, 4, bias=False)
+        # 缺一个全局平均池化
+        # 全连接层
+        self.fc = nn.Linear(2048, 4, bias=False)  # 2048通道对应到4类
 
         # Init weights
         self._init_weight()
@@ -217,6 +230,7 @@ class AlignedXception(nn.Module):
         x = self.block17(x)
         x = self.block18(x)
         x = self.block19(x)
+        # print("middleflow的输出: ", x.size())  # [batch, 728, 32, 32])
 
         # Exit flow
         x = self.block20(x)
@@ -225,16 +239,24 @@ class AlignedXception(nn.Module):
         x = self.bn3(x)
         x = self.relu(x)
 
-        x = self.conv4(x)
-        x = self.bn4(x)
-        x = self.relu(x)
+        # x = self.conv4(x)
+        # x = self.bn4(x)
+        # x = self.relu(x)
 
         x = self.conv5(x)
         x = self.bn5(x)
-        x = self.relu(x)
+        x = self.relu(x)  # [batch_size, 2048, 28, 40]
+        # print("512大小的时候输出的x的size", x.size())  # [batch_size, 2048, 32, 32])
+        # mat1 and mat2 shapes cannot be multiplied (286720x40 and 2048x4)
 
-        # x = self.fc(x)
-
+        # 全局平均池化
+        # 参考了
+        # https://github.com/Cadene/pretrained-models.pytorch/blob/master/pretrainedmodels/models/xception.py
+        # 里的logits函数
+        x = F.adaptive_avg_pool2d(x, (1, 1))
+        # print("全局平均池化之后是这样的: ", x.size())  # [batch_size, 2048, 1, 1]
+        x = self.fc(x)  # 全连接层
+        print("全连接完是这样的: ", x.size())  # torch.Size([5, 4])
         return x, low_level_feat
 
     def _init_weight(self):
@@ -262,6 +284,8 @@ class AlignedXception(nn.Module):
                 if my_change_flag == 0:  # 改一下第一层的输入通道数
                     model_dict[k] = v.resize_([32, 10, 3, 3])
                     my_change_flag = 1
+                if k.startswith('fc.weight'):  # 全连接层预训练模型是[1000, 2048]，原模型有1000个类
+                    model_dict[k] = v.resize_([4, 2048])
                 if k.startswith('block11'):
                     model_dict[k] = v
                     model_dict[k.replace('block11', 'block12')] = v
@@ -274,9 +298,9 @@ class AlignedXception(nn.Module):
                     model_dict[k.replace('block11', 'block19')] = v
                 elif k.startswith('block12'):
                     model_dict[k.replace('block12', 'block20')] = v
-                elif k.startswith('bn3'):
-                    model_dict[k] = v
-                    model_dict[k.replace('bn3', 'bn4')] = v
+                # elif k.startswith('bn3'):
+                #     model_dict[k] = v
+                #     model_dict[k.replace('bn3', 'bn4')] = v
                 elif k.startswith('conv4'):
                     model_dict[k.replace('conv4', 'conv5')] = v
                 elif k.startswith('bn4'):
@@ -313,7 +337,7 @@ if __name__ == "__main__":
 
     model = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
     # input = torch.rand(1, 3, 512, 512)
-    input = torch.rand(1, 10, 512, 512)
+    input = torch.rand(5, 10, 512, 512)
     output, low_level_feat = model(input)
     # modules = [model]
     # # print(len(modules))  # 用来理解get_1x_lr_params在干嘛
