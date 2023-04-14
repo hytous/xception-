@@ -6,8 +6,8 @@ from tqdm import tqdm
 from mypath import Path
 from dataloaders import make_data_loader
 from modeling.sync_batchnorm.replicate import patch_replication_callback
-from modeling.deeplab import *
-from modeling.backbone.xception import *  # 声明模型
+from modeling.buildnet import *
+# from modeling.backbone.xception import *  # 声明模型
 from utils.loss import SegmentationLosses
 from utils.calculate_weights import calculate_weigths_labels
 from utils.lr_scheduler import LR_Scheduler
@@ -31,25 +31,23 @@ class Trainer(object):
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
         self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
 
-        # Define network
-        model = DeepLab(num_classes=self.nclass,
+        # 定义网络
+        model = Builder(num_classes=self.nclass,
                         backbone=args.backbone,
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn)
-        # model = AlignedXception(num_classes=self.nclass,
-        #                 output_stride=args.out_stride,
-        #                 sync_bn=args.sync_bn,
-        #                 freeze_bn=args.freeze_bn)
 
         # 获得每层的参数，并规定学习率
-        train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
-                        {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
-        # train_params = {'params': model.get_1x_lr_params(), 'lr': args.lr}
-
+        # train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
+        #                 {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
+        params = model.get_1x_lr_params()
+        lr = args.lr
         # Define Optimizer
         # 将每层的参数传到优化器里，用随机梯度下降算法来优化
-        optimizer = torch.optim.SGD(train_params, momentum=args.momentum,
+        # optimizer = torch.optim.SGD(train_params, momentum=args.momentum,
+        #                             weight_decay=args.weight_decay, nesterov=args.nesterov)  # 随机梯度下降
+        optimizer = torch.optim.SGD(params=params, lr=lr, momentum=args.momentum,
                                     weight_decay=args.weight_decay, nesterov=args.nesterov)  # 随机梯度下降
 
         # Define Criterion
@@ -115,7 +113,7 @@ class Trainer(object):
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
             self.optimizer.zero_grad()
             output = self.model(image)  # 该多加一个全连接层，把output变成和target一样的数据形式
-            # print("output是这样的", output.size())  # [5, 2, 434, 636]
+            print("output是这样的", output.size())  # [5, 2, 434, 636]
             # print("flatten后output是这样的", output.size())  # [5, 4]
             # print("output是这样的: ", output)  # 是一个四维的tensor，因为这个是语义分割的output，是[chanal, mask]，其中
             # mask是三维的，mask就是这个数据的标签(语义分割每个像素点上都要打标签)
