@@ -9,7 +9,6 @@ import scipy.io as scio
 img_chang = 434
 img_kuan = 636
 
-
 def get_data():  # 获取数据
     train_data = []
     train_label = []
@@ -23,7 +22,18 @@ def get_data():  # 获取数据
     matdatas = matdatas[0]
     i = 0
     for matdata in matdatas:  # 总共55组图片
-        fatclass = matdata['class'][0, 0]  # 是否是脂肪肝，用0或1表示 [0,0]是因为数据格式是：[[0]]这样的，可能是tensor吧
+        # fatclass = matdata['class'][0, 0]  # 是否是脂肪肝，用0或1表示 [0,0]是因为数据格式是：[[0]]这样的，可能是tensor吧
+        fat = matdata['fat'][0, 0]
+        # 先做四分类
+        if fat < 5:
+            fatclass = 0  # 无脂肪肝
+        elif 5 <= fat <= 24:
+            fatclass = 1  # 轻度脂肪肝
+        elif 25 <= fat <= 44:
+            fatclass = 2  # 中度脂肪肝
+        elif 45 <= fat:
+            fatclass = 3  # 重度脂肪肝
+
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
         try:
             if i % 11 == 0:  # 隔11个数据抽一组作为验证集，验证机中总共5组
@@ -42,16 +52,15 @@ def get_data():  # 获取数据
 
 # 定义FattyLiver类，继承Dataset方法，并重写__getitem__()和__len__()方法
 class FattyLiver(Dataset):
-    # 二分类
-    NUM_CLASSES = 2
+
+    # 总共四个类
+    NUM_CLASSES = 4
 
     def __init__(self, args, split='train'):
         super().__init__()
         train_data, train_label, val_data, val_label = get_data()
         # 初始化函数，得到数据
         if split == 'train':
-            # img_batch = train_data[:, 0]
-            # img_batch_label = train_data[:, 1]
             img_batch = train_data
             img_batch_label = train_label
             self.data = img_batch
@@ -83,14 +92,8 @@ if __name__ == "__main__":
     """
     from torch.utils.data import DataLoader
 
-    # 把数据从mat文件中取出
-    train_data, val_data = get_data()
-    img_batch = train_data[:, 0]
-    img_batch_label = train_data[:, 1]
-
     # 通过FattyLiver将数据进行加载，返回Dataset对象，包含data和labels
-    torch_data = FattyLiver(img_batch, img_batch_label)
-
+    torch_data = FattyLiver('train')
     # 通过上述的程序，我们构造了一个数据加载器torch_data，但是还是不能直接
     # 传入网络中。接下来需要构造数据装载器，产生可迭代的数据，再传入网络中。DataLoader类完成这个工作。
     # num_workers : 表示加载的时候子进程数
