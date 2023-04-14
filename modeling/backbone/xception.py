@@ -255,8 +255,13 @@ class AlignedXception(nn.Module):
         # 里的logits函数
         x = F.adaptive_avg_pool2d(x, (1, 1))
         # print("全局平均池化之后是这样的: ", x.size())  # [batch_size, 2048, 1, 1]
+
+        # x.view()就是对tensor进行reshape。将向量铺平，便于传入全连接层
+        # view里的 -1 表示一个不确定的数，就是你如果不确定你想要reshape成几列，但是你很肯定要reshape成batch_size（即x.size(0)）行，
+        # 那不确定的地方就可以写成 - 1
+        x = x.view(x.size(0), -1)
         x = self.fc(x)  # 全连接层
-        print("全连接完是这样的: ", x.size())  # torch.Size([5, 4])
+        # print("全连接完是这样的: ", x.size())  # torch.Size([5, 4])
         return x, low_level_feat
 
     def _init_weight(self):
@@ -337,7 +342,8 @@ if __name__ == "__main__":
 
     model = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
     # input = torch.rand(1, 3, 512, 512)
-    input = torch.rand(5, 10, 512, 512)
+    # input = torch.rand(5, 10, 512, 512)
+    input = torch.rand(5, 10, 434, 636)
     output, low_level_feat = model(input)
     # modules = [model]
     # # print(len(modules))  # 用来理解get_1x_lr_params在干嘛
@@ -352,6 +358,6 @@ if __name__ == "__main__":
     #             #     if p.requires_grad:
     #             #         yield p
 
-    print(output.size())
-    print(low_level_feat.size())
+    # print(output.size())  # [5, 4]
+    # print(low_level_feat.size())  # [5, 128, 128, 128]
 
