@@ -53,8 +53,9 @@ class SeparableConv2d_same(nn.Module):  # 自动计算padding的大小，图片�
 
 
 class Block(nn.Module):
-    # reps表示此block里有几个相同的relu+SeparableConv2d，然后用for进行堆叠避免冗余
+    # reps表示此block里有几个相同的relu+SeparableConv2d，然后用for进行堆叠避免代码冗余
     # 这里的stride只有在最后的最大池化层用到，所以这个stride是表示池化的stride
+    # grow表示是先改变通道数还是最后改变通道数
     def __init__(self, inplanes, planes, reps, stride=1, dilation=1, start_with_relu=True, grow_first=True,
                  is_last=False):
         super(Block, self).__init__()
