@@ -111,17 +111,13 @@ class Trainer(object):
             if self.args.cuda:
                 image, target = image.cuda(), target.cuda()
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
-            self.optimizer.zero_grad()
-            output = self.model(image)  # 该多加一个全连接层，把output变成和target一样的数据形式
-            print("output是这样的", output.size())  # [5, 2, 434, 636]
-            # print("flatten后output是这样的", output.size())  # [5, 4]
-            # print("output是这样的: ", output)  # 是一个四维的tensor，因为这个是语义分割的output，是[chanal, mask]，其中
-            # mask是三维的，mask就是这个数据的标签(语义分割每个像素点上都要打标签)
+            self.optimizer.zero_grad()  # 清空过往梯度
+            output = self.model(image)  # [batch_size, 类别数]
             loss = self.criterion(output, target)
-            loss.backward()
-            self.optimizer.step()
+            loss.backward()  # 反向传播，计算当前梯度
+            self.optimizer.step()  # 根据梯度更新网络参数
             train_loss += loss.item()
-            tbar.set_description('Train loss: %.3f' % (train_loss / (i + 1)))
+            tbar.set_description('Train loss: %.3f' % (train_loss / (i + 1)))  # %.3f表示输出三位浮点数
             self.writer.add_scalar('train/total_loss_iter', loss.item(), i + num_img_tr * epoch)
 
             # Show 10 * 3 inference results each epoch
