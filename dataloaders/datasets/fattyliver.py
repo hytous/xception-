@@ -20,8 +20,7 @@ def get_data():  # 获取数据
         '\dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')
     matdatas = allmatdatas['data']
     matdatas = matdatas[0]
-    i = 0
-    for matdata in matdatas:  # 总共55组图片
+    for i, matdata in enumerate(matdatas):  # 总共55组图片  enumerate可以在for里多加一个计数器i
         # fatclass = matdata['class'][0, 0]  # 是否是脂肪肝，用0或1表示 [0,0]是因为数据格式是：[[0]]这样的，可能是tensor吧
         fat = matdata['fat'][0, 0]
         # 先做四分类
@@ -40,7 +39,6 @@ def get_data():  # 获取数据
                 # val_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
                 val_data.append(img_batch.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
                 val_label.append(fatclass)
-                i = i + 1
             else:
                 # train_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
                 train_data.append(img_batch.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
@@ -59,6 +57,7 @@ class FattyLiver(Dataset):
     def __init__(self, args, split='train'):
         super().__init__()
         train_data, train_label, val_data, val_label = get_data()
+
         # 初始化函数，得到数据
         if split == 'train':
             img_batch = train_data
@@ -92,8 +91,14 @@ if __name__ == "__main__":
     """
     from torch.utils.data import DataLoader
 
+    train_data, train_label, val_data, val_label = get_data()
+    print("train_data的shape", train_data.shape)
+    print("train_label的shape", train_label.shape)
+    print("val_data的shape", val_data.shape)
+    print("val_label的shape", val_label.shape)
     # 通过FattyLiver将数据进行加载，返回Dataset对象，包含data和labels
     torch_data = FattyLiver('train')
+
     # 通过上述的程序，我们构造了一个数据加载器torch_data，但是还是不能直接
     # 传入网络中。接下来需要构造数据装载器，产生可迭代的数据，再传入网络中。DataLoader类完成这个工作。
     # num_workers : 表示加载的时候子进程数
