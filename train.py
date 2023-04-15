@@ -7,7 +7,6 @@ from mypath import Path
 from dataloaders import make_data_loader
 from modeling.sync_batchnorm.replicate import patch_replication_callback
 from modeling.buildnet import *
-# from modeling.backbone.xception import *  # 声明模型
 from utils.loss import SegmentationLosses
 from utils.calculate_weights import calculate_weigths_labels
 from utils.lr_scheduler import LR_Scheduler
@@ -39,20 +38,16 @@ class Trainer(object):
                         freeze_bn=args.freeze_bn)
 
         # 获得每层的参数，并规定学习率
-        # train_params = [{'params': model.get_1x_lr_params(), 'lr': args.lr},
-        #                 {'params': model.get_10x_lr_params(), 'lr': args.lr * 10}]
         params = model.get_1x_lr_params()
         lr = args.lr
-        # Define Optimizer
-        # 将每层的参数传到优化器里，用随机梯度下降算法来优化
-        # optimizer = torch.optim.SGD(train_params, momentum=args.momentum,
-        #                             weight_decay=args.weight_decay, nesterov=args.nesterov)  # 随机梯度下降
+        # 定义优化器
+        # 将每层的参数传到优化器里，用随机梯度下降算法来优化网络中的参数
         optimizer = torch.optim.SGD(params=params, lr=lr, momentum=args.momentum,
                                     weight_decay=args.weight_decay, nesterov=args.nesterov)  # 随机梯度下降
 
-        # Define Criterion
-        # whether to use class balanced weights
-        if args.use_balanced_weights:
+        # 定义网络的优化标准
+        # 优化器依靠优化标准(越小越好)来决定怎么优化网络中的参数
+        if args.use_balanced_weights:  # 是否给不同的类设置训练权重（数据分布非常不均匀时考虑）
             classes_weights_path = os.path.join(Path.db_root_dir(args.dataset), args.dataset + '_classes_weights.npy')
             if os.path.isfile(classes_weights_path):
                 weight = np.load(classes_weights_path)
@@ -62,7 +57,6 @@ class Trainer(object):
         else:
             weight = None
         self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda).build_loss(mode=args.loss_type)
-        # self.criterion = SegmentationLosses(weight=weight, cuda=args.cuda, nclass=self.nclass).build_loss(mode=args.loss_type)
         self.model, self.optimizer = model, optimizer
 
         # Define Evaluator
@@ -113,41 +107,55 @@ class Trainer(object):
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
             self.optimizer.zero_grad()  # 清空过往梯度
             output = self.model(image)  # [batch_size, 类别数]
+            """
+            criterion的输入，这里用的是交叉熵，输入格式如下
+            - Input: Shape :math:`(C)`, :math:`(N, C)` or :math:`(N, C, d_1, d_2, ..., d_K)` with :math:`K \geq 1`
+              in the case of `K`-dimensional loss.
+            - Target: If containing class indices, shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with
+            多分类用的格式是Input：(N, C)， Target：(N)   其中N是batch_size然后C是类别数
+            """
             loss = self.criterion(output, target)
             loss.backward()  # 反向传播，计算当前梯度
             self.optimizer.step()  # 根据梯度更新网络参数
-            train_loss += loss.item()
-            tbar.set_description('Train loss: %.3f' % (train_loss / (i + 1)))  # %.3f表示输出三位浮点数
-            self.writer.add_scalar('train/total_loss_iter', loss.item(), i + num_img_tr * epoch)
+            # print("本次loss为", loss)
+            # print("train_loss+= loss.item()前为", train_loss)
+            train_loss += loss.item()  # .item返回的是该元素值的高精度值
+            # print("train_loss为", train_loss)
+            tbar.set_description('训练出的loss值: %.3f' % (train_loss / (i + 1)))  # %.3f表示输出三位浮点数
+            self.writer.add_scalar('训练/total_loss_iter', loss.item(), i + num_img_tr * epoch)  # 在所有数据中排第n个
 
-            # Show 10 * 3 inference results each epoch
-            if i % (num_img_tr // 10) == 0:
-                global_step = i + num_img_tr * epoch
+            # 每个周期显示10 * 3个推断结果
+            if i % (num_img_tr // 10) == 0:  # //代表整数除法，向下取整
+                global_step = i + num_img_tr * epoch  # 在所有数据中排第n个
 
-                image0 = image[:, 0, :, :]  # 显示第一张图
+                image0 = image[:, 0, :, :].clone()  # 显示第一张图
                 # print("image0的shape", image0.size())
                 # image0 = np.expand_dims(image0, axis=0)  # 扩充一维
                 # print("变成tensor前image0是这样的", image0)
-                image0 = torch.tensor(image0)
+
+                # image0 = torch.tensor(image0)
+
                 # print("变成tensor后image0是这样的", image0)
 
                 # self.summary.visualize_image(self.writer, self.args.dataset, image, target, output, global_step)
                 self.summary.visualize_image(self.writer, self.args.dataset, image0, target, output, global_step)  # 显示图
 
-        self.writer.add_scalar('train/total_loss_epoch', train_loss, epoch)
-        print('[Epoch: %d, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
-        print('Loss: %.3f' % train_loss)
+        self.writer.add_scalar('训练/某代的总loss值', train_loss, epoch)
+        print('[第 : %d 代, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
+        print('总Loss值: %.3f' % train_loss)
 
+        # 是否在训练中
         if self.args.no_val:
-            # save checkpoint every epoch
+            # 训练时每代都要存一下存档点
             is_best = False
             self.saver.save_checkpoint({
                 'epoch': epoch + 1,
-                'state_dict': self.model.module.state_dict(),
+                'state_dict': self.model.module.state_dict(),  # 训练中需要学习的变量
                 'optimizer': self.optimizer.state_dict(),
                 'best_pred': self.best_pred,
             }, is_best)
 
+    # 模型评估
     def validation(self, epoch):
         self.model.eval()
         self.evaluator.reset()
@@ -163,27 +171,26 @@ class Trainer(object):
             test_loss += loss.item()
             tbar.set_description('Test loss: %.3f' % (test_loss / (i + 1)))
             pred = output.data.cpu().numpy()
-            target = target.cpu().numpy()
-            pred = np.argmax(pred, axis=1)
+            target = target.cpu().numpy()  # 真实值
+            pred = np.argmax(pred, axis=1)  # 选出计算出的概率最大的作为预测结果
+            print("真实值的shape", target.shape)
+            print("预测结果的shape", pred.shape)
             # Add batch sample into evaluator
+            # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
 
         # Fast test during the training
-        Acc = self.evaluator.Pixel_Accuracy()
-        Acc_class = self.evaluator.Pixel_Accuracy_Class()
-        mIoU = self.evaluator.Mean_Intersection_over_Union()
-        FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()
-        self.writer.add_scalar('val/total_loss_epoch', test_loss, epoch)
-        self.writer.add_scalar('val/mIoU', mIoU, epoch)
-        self.writer.add_scalar('val/Acc', Acc, epoch)
-        self.writer.add_scalar('val/Acc_class', Acc_class, epoch)
-        self.writer.add_scalar('val/fwIoU', FWIoU, epoch)
-        print('Validation:')
-        print('[Epoch: %d, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
-        print("Acc:{}, Acc_class:{}, mIoU:{}, fwIoU: {}".format(Acc, Acc_class, mIoU, FWIoU))
+        Acc = self.evaluator.Accuracy()  # 准确率
+        Acc_class = self.evaluator.Accuracy_Class()  # 不同类各自的准确率
+        self.writer.add_scalar('验证/total_loss_epoch', test_loss, epoch)
+        self.writer.add_scalar('验证/准确率', Acc, epoch)
+        self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
+        print('验证结果:')
+        print('[第%d代, 图片数: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
+        print("准确率:{}, 类准确率:{}".format(Acc, Acc_class))
         print('Loss: %.3f' % test_loss)
 
-        new_pred = mIoU
+        new_pred = Acc  # 以准确率作为评价指标来选定训练最好的一代
         if new_pred > self.best_pred:
             is_best = True
             self.best_pred = new_pred
@@ -335,8 +342,11 @@ def main():
     # 如果需要，放置恢复文件的路径
     parser.add_argument('--resume', type=str, default=None,
                         help='put the path to resuming file if needed')
+    # # 设置检查点的名字
+    # parser.add_argument('--checkname', type=str, default=None,
+    #                     help='set the checkpoint name')
     # 设置检查点的名字
-    parser.add_argument('--checkname', type=str, default=None,
+    parser.add_argument('--checkname', type=str, default='D:\S\study\大四\毕设\模型\存档点',
                         help='set the checkpoint name')
     # finetuning pre-trained models 微调预训练模型
     # 因数据集不同而进行微调
@@ -402,8 +412,8 @@ def main():
     print(args)
     torch.manual_seed(args.seed)
     trainer = Trainer(args)
-    print('Starting Epoch:', trainer.args.start_epoch)  # 开始迭代 默认从第0代开始
-    print('Total Epoches:', trainer.args.epochs)  # 总迭代次数
+    print('起始代:', trainer.args.start_epoch)  # 开始迭代 默认从第0代开始
+    print('总迭代次数:', trainer.args.epochs)  # 总迭代次数
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
         trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
