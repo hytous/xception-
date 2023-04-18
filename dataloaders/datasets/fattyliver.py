@@ -37,12 +37,16 @@ def get_data():  # 获取数据
         try:
             if i % 11 == 0:  # 隔11个数据抽一组作为验证集，验证机中总共5组
                 # val_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
-                val_data.append(img_batch.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
-                val_label.append(fatclass)
+                for img in img_batch:
+                    img = np.expand_dims(img, axis=0)  # 增维
+                    val_data.append(img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
+                    val_label.append(fatclass)
             else:
                 # train_data.append([img_batch.astype(np.float32), fatclass])  # 原始图片数据是int类型的，之后的处理需要float类型
-                train_data.append(img_batch.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
-                train_label.append(fatclass)
+                for img in img_batch:
+                    img = np.expand_dims(img, axis=0)  # 增维
+                    train_data.append(img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
+                    train_label.append(fatclass)
         except Exception as e:
             print(e)
     return np.array(train_data), np.array(train_label), np.array(val_data), np.array(val_label)
