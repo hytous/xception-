@@ -13,7 +13,7 @@ from utils.lr_scheduler import LR_Scheduler
 from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
-
+from utils.plt import draw_fig
 
 class Trainer(object):
     def __init__(self, args):
@@ -96,6 +96,7 @@ class Trainer(object):
     def training(self, epoch):
         train_loss = 0.0
         self.model.train()
+        print("是否使用cuda", self.args.cuda)
         tbar = tqdm(self.train_loader)  # 进度条，使python进度可视化
 
         num_img_tr = len(self.train_loader)  # 载入数据
@@ -144,13 +145,14 @@ class Trainer(object):
         print('[第 : %d 代, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
         print('总Loss值: %.3f' % train_loss)
 
-        # 是否在训练中
+        # 是否有验证环节，如果没有就每一代都存一下，如果有那么验证的时候会存这里就不存了
         if self.args.no_val:
             # 训练时每代都要存一下存档点
             is_best = False
             self.saver.save_checkpoint({
                 'epoch': epoch + 1,
-                'state_dict': self.model.module.state_dict(),  # 训练中需要学习的变量
+                # 'state_dict': self.model.module.state_dict(),  # 多gpu
+                'state_dict': self.model.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
                 'best_pred': self.best_pred,
             }, is_best)
@@ -173,8 +175,8 @@ class Trainer(object):
             pred = output.data.cpu().numpy()
             target = target.cpu().numpy()  # 真实值
             pred = np.argmax(pred, axis=1)  # 选出计算出的概率最大的作为预测结果
-            print("真实值的shape", target.shape)
-            print("预测结果的shape", pred.shape)
+            # print("真实值的shape", target.shape)
+            # print("预测结果的shape", pred.shape)
             # Add batch sample into evaluator
             # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
@@ -201,6 +203,7 @@ class Trainer(object):
                 'optimizer': self.optimizer.state_dict(),
                 'best_pred': self.best_pred,
             }, is_best)
+        # return Acc, loss
 
 
 def main():
@@ -297,7 +300,7 @@ def main():
     # parser.add_argument('--batch-size', type=int, default=None,
     #                     metavar='N', help='input batch size for \
     #                             training (default: auto)')
-    parser.add_argument('--batch-size', type=int, default=5,
+    parser.add_argument('--batch-size', type=int, default=10,
                         metavar='N', help='input batch size for \
                                 training (default: auto)')
     # 测试时batch的大小
@@ -326,12 +329,10 @@ def main():
                         help='whether use nesterov (default: False)')
     # cuda, seed and logging
     # 不用cuda训练
-    # parser.add_argument('--no-cuda', action='store_true', default=
+    # parser.add_argument('--no-cuda', action='store_false', default=
     # False, help='disables CUDA training')
-    # parser.add_argument('--no-cuda', action='store_true', default=
-    # True, help='disables CUDA training')
     parser.add_argument('--no-cuda', action='store_true', default=
-    False, help='disables CUDA training')
+    True, help='disables CUDA training')
     # gpu号 选择用哪个gpu训练 ，输入必须是逗号分隔的整数列表
     parser.add_argument('--gpu-ids', type=str, default='0',
                         help='use which gpu to train, must be a \
@@ -347,7 +348,7 @@ def main():
     # parser.add_argument('--checkname', type=str, default=None,
     #                     help='set the checkpoint name')
     # 设置检查点的名字
-    parser.add_argument('--checkname', type=str, default='D:\S\study\大四\毕设\模型\存档点',
+    parser.add_argument('--checkname', type=str, default=r'D:\S\study\four\graduateDesign\mode\checkpoint',
                         help='set the checkpoint name')
     # finetuning pre-trained models 微调预训练模型
     # 因数据集不同而进行微调
@@ -415,12 +416,20 @@ def main():
     trainer = Trainer(args)
     print('起始代:', trainer.args.start_epoch)  # 开始迭代 默认从第0代开始
     print('总迭代次数:', trainer.args.epochs)  # 总迭代次数
+    # loss = []  # 存储loss，用于显示
+    # acc = []  # 存储准确率
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
         trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
         if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
+            # epoch_acc, epoch_loss = trainer.validation(epoch)  # 评估一下
             trainer.validation(epoch)  # 评估一下
+            # loss.append(epoch_loss)
+            # acc.append(epoch_acc)
 
+    # 画图
+    # draw_fig(loss, "loss", epoch)
+    # draw_fig(acc, "acc", epoch)
     trainer.writer.close()
 
 
