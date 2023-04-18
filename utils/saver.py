@@ -19,6 +19,10 @@ class Saver(object):
     def save_checkpoint(self, state, is_best, filename='checkpoint.pth.tar'):
         """Saves checkpoint to disk"""
         filename = os.path.join(self.experiment_dir, filename)
+        # filename = os.path.join('D:\S\study\大四\毕设\mol\sav', filename)
+        # filename = os.path.join(r'D:\S\study\four\graduateDesign\mode\checkpoint', filename)
+        # filename = self.experiment_dir
+        print("模型的存储路径是 :", filename)
         torch.save(state, filename)
         if is_best:
             best_pred = state['best_pred']
