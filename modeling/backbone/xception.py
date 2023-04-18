@@ -123,7 +123,7 @@ class AlignedXception(nn.Module):
 
         # Entry flow
         # self.conv1 = nn.Conv2d(3, 32, 3, stride=2, padding=1, bias=False)
-        self.conv1 = nn.Conv2d(10, 32, 3, stride=2, padding=1, bias=False)  # 输入通道数改成10
+        self.conv1 = nn.Conv2d(1, 32, 3, stride=2, padding=1, bias=False)  # 输入通道数改成1
         self.bn1 = BatchNorm(32)
         self.relu = nn.ReLU(inplace=True)
 
@@ -287,7 +287,7 @@ class AlignedXception(nn.Module):
                 if 'pointwise' in k:
                     v = v.unsqueeze(-1).unsqueeze(-1)
                 if my_change_flag == 0:  # 改一下第一层的输入通道数
-                    model_dict[k] = v.resize_([32, 10, 3, 3])
+                    model_dict[k] = v.resize_([32, 1, 3, 3])
                     my_change_flag = 1
                 if k.startswith('fc.weight'):  # 全连接层预训练模型是[1000, 2048]，原模型有1000个类
                     model_dict[k] = v.resize_([4, 2048])
