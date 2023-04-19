@@ -16,7 +16,7 @@ class Evaluator(object):
     # 不同类各自的准确率
     def Accuracy_Class(self):
         Acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
-        print("Acc是", Acc)
+        # print("Acc是", Acc)
         Acc = np.nanmean(Acc)  # nanmean忽略掉空值进行求均值，不忽略掉空值计算会报错
         return Acc
 
@@ -27,17 +27,20 @@ class Evaluator(object):
             confusion_matrix[p, t] += 1
         return confusion_matrix
 
+    # 返回当前的混淆矩阵
+    def back_matrix(self):
+        print("当前的混淆矩阵 :", self.confusion_matrix)
+        return self.confusion_matrix
+
     # 输入预测结果和真实值
     def add_batch(self, real_type, pre_type):
         # assert（断言）用于判断一个表达式
         # 在表达式条件为 false 的时候触发异常。
         # 断言可以在条件不满足程序运行的情况下直接返回错误，而不必等待程序运行后出现崩溃的情况
         assert real_type.shape == pre_type.shape
-        self.confusion_matrix += self._generate_matrix(real_type, pre_type)  # 生成混淆矩阵
+        self.confusion_matrix += self._generate_matrix(real_type, pre_type)  # 生成混淆矩阵,且每个batch累计
 
     def reset(self):
         self.confusion_matrix = np.zeros((self.num_class,) * 2)
-
-
 
 

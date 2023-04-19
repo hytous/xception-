@@ -160,7 +160,7 @@ class Trainer(object):
     # 模型评估
     def validation(self, epoch):
         self.model.eval()
-        self.evaluator.reset()
+        self.evaluator.reset()  # 清空混淆矩阵
         tbar = tqdm(self.val_loader, desc='\r')  # 进度条
         test_loss = 0.0
         for i, sample in enumerate(tbar):
@@ -184,6 +184,11 @@ class Trainer(object):
         # Fast test during the training
         Acc = self.evaluator.Accuracy()  # 准确率
         Acc_class = self.evaluator.Accuracy_Class()  # 不同类各自的准确率
+        confusion_matrix = self.evaluator.back_matrix()  # 获得混淆矩阵
+        class_names = ['health', 'mild', 'moderate', 'severe']  # 健康轻度中度重度
+        subset_ids = list(range(4))
+        self.summary.visualize_confusion_matrix(writer=self.writer,  confusion_matrix=confusion_matrix, num_classes=4,
+                                                class_names=class_names, subset_ids=subset_ids, global_step=epoch)
         self.writer.add_scalar('验证/total_loss_epoch', test_loss, epoch)
         self.writer.add_scalar('验证/准确率', Acc, epoch)
         self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
@@ -419,7 +424,7 @@ def main():
     # loss = []  # 存储loss，用于显示
     # acc = []  # 存储准确率
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
-        trainer.training(epoch)
+        # trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
         if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
             # epoch_acc, epoch_loss = trainer.validation(epoch)  # 评估一下
