@@ -96,13 +96,11 @@ class Trainer(object):
     def training(self, epoch):
         train_loss = 0.0
         self.model.train()
-        print("是否使用cuda", self.args.cuda)
         tbar = tqdm(self.train_loader)  # 进度条，使python进度可视化
 
         num_img_tr = len(self.train_loader)  # 载入数据
         for i, sample in enumerate(tbar):
             image, target = sample['image'], sample['label']
-            # print("是否使用cuda", self.args.cuda)  # False 没有用cuda
             if self.args.cuda:
                 image, target = image.cuda(), target.cuda()
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
@@ -175,9 +173,6 @@ class Trainer(object):
             pred = output.data.cpu().numpy()
             target = target.cpu().numpy()  # 真实值
             pred = np.argmax(pred, axis=1)  # 选出计算出的概率最大的作为预测结果
-            # print("真实值的shape", target.shape)
-            # print("预测结果的shape", pred.shape)
-            # Add batch sample into evaluator
             # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
 
@@ -185,10 +180,11 @@ class Trainer(object):
         Acc = self.evaluator.Accuracy()  # 准确率
         Acc_class = self.evaluator.Accuracy_Class()  # 不同类各自的准确率
         confusion_matrix = self.evaluator.back_matrix()  # 获得混淆矩阵
-        class_names = ['health', 'mild', 'moderate', 'severe']  # 健康轻度中度重度
-        subset_ids = list(range(4))
+        class_names = ['health', 'mild', 'moderate', 'severe']  # 健康 轻度 中度 重度
+        # subset_ids = list(range(4))
+        # 绘制混淆矩阵
         self.summary.visualize_confusion_matrix(writer=self.writer,  confusion_matrix=confusion_matrix, num_classes=4,
-                                                class_names=class_names, subset_ids=subset_ids, global_step=epoch)
+                                                class_names=class_names,  global_step=epoch)
         self.writer.add_scalar('验证/total_loss_epoch', test_loss, epoch)
         self.writer.add_scalar('验证/准确率', Acc, epoch)
         self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
@@ -423,6 +419,7 @@ def main():
     print('总迭代次数:', trainer.args.epochs)  # 总迭代次数
     # loss = []  # 存储loss，用于显示
     # acc = []  # 存储准确率
+    print("是否使用cuda", trainer.args.cuda)
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
         trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了

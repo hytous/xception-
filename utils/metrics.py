@@ -29,7 +29,7 @@ class Evaluator(object):
 
     # 返回当前的混淆矩阵
     def back_matrix(self):
-        print("当前的混淆矩阵 :", self.confusion_matrix)
+        # print("当前的混淆矩阵 :", self.confusion_matrix)
         return self.confusion_matrix
 
     # 输入预测结果和真实值
