@@ -424,7 +424,7 @@ def main():
     # loss = []  # 存储loss，用于显示
     # acc = []  # 存储准确率
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
-        # trainer.training(epoch)
+        trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
         if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
             # epoch_acc, epoch_loss = trainer.validation(epoch)  # 评估一下
