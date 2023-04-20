@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 from modeling.sync_batchnorm.batchnorm import SynchronizedBatchNorm2d
 
+
 class Bottleneck(nn.Module):
-    expansion = 4
+    expansion = 4  # 膨胀
 
     def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, BatchNorm=None):
         super(Bottleneck, self).__init__()

@@ -14,6 +14,10 @@ from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
 from utils.plt import draw_fig
+# 全局取消证书验证
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 
 class Trainer(object):
     def __init__(self, args):
@@ -332,8 +336,9 @@ def main():
     # 不用cuda训练
     # parser.add_argument('--no-cuda', action='store_false', default=
     # False, help='disables CUDA training')
-    parser.add_argument('--no-cuda', action='store_true', default=
-    True, help='disables CUDA training')
+    # 用cuda
+    parser.add_argument('--no-cuda', action='store_false', default=
+    False, help='disables CUDA training')
     # gpu号 选择用哪个gpu训练 ，输入必须是逗号分隔的整数列表
     parser.add_argument('--gpu-ids', type=str, default='0',
                         help='use which gpu to train, must be a \
@@ -345,11 +350,8 @@ def main():
     # 如果需要，放置恢复文件的路径
     parser.add_argument('--resume', type=str, default=None,
                         help='put the path to resuming file if needed')
-    # # 设置检查点的名字
-    # parser.add_argument('--checkname', type=str, default=None,
-    #                     help='set the checkpoint name')
     # 设置检查点的名字
-    parser.add_argument('--checkname', type=str, default=r'D:\S\study\four\graduateDesign\mode\checkpoint',
+    parser.add_argument('--checkname', type=str, default=r'./mymodel/Xception/checkpoint',
                         help='set the checkpoint name')
     # finetuning pre-trained models 微调预训练模型
     # 因数据集不同而进行微调

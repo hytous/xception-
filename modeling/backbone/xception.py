@@ -277,6 +277,8 @@ class AlignedXception(nn.Module):
                 m.bias.data.zero_()
 
     def _load_pretrained_model(self):
+        #  autodl的与服务器存在/root/.cache/torch/hub/checkpoints/文件夹里
+        #  预训练模型可能会下坏掉，坏掉得手动去删掉重新下
         pretrain_dict = model_zoo.load_url('http://data.lip6.fr/cadene/pretrainedmodels/xception-b5690688.pth')
         model_dict = {}
         state_dict = self.state_dict()

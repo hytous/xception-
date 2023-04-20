@@ -16,8 +16,7 @@ def get_data():  # 获取数据
     val_label = []
     # 可以用matlab查看数据形式
     allmatdatas = scio.loadmat(
-        'D:\S\study\大四\毕设\代码\pytorch-deeplab-xception-master\dataloaders'
-        '\dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')
+        r'./dataloaders/dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')
     matdatas = allmatdatas['data']
     matdatas = matdatas[0]
     for i, matdata in enumerate(matdatas):  # 总共55组图片  enumerate可以在for里多加一个计数器i
