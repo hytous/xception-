@@ -32,9 +32,9 @@ class Trainer(object):
 
         # Define Dataloader  用dataloaders文件夹init文件里，自己写的make_data_loader方法载入数据
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
-        self.train_loader, self.val_loader, self.test_loader, self.nclass, self.class_names \
+        self.train_loader, self.val_loader, self.all_loader, self.nclass, self.class_names \
             = make_data_loader(args, **kwargs)
-
+        self.all_loader = None  # 训练时不需要
         # 定义网络
         model = Builder(num_classes=self.nclass,
                         backbone=args.backbone,
