@@ -9,7 +9,7 @@ from modeling.backbone import build_backbone
 
 class Builder(nn.Module):
     def __init__(self, backbone='xception', output_stride=16, num_classes=4,
-                 sync_bn=True, freeze_bn=False):
+                 sync_bn=True, freeze_bn=False, pretrained=True):
         super(Builder, self).__init__()
         if backbone == 'drn':
             output_stride = 8
@@ -20,7 +20,7 @@ class Builder(nn.Module):
         else:
             BatchNorm = nn.BatchNorm2d
 
-        self.backbone = build_backbone(backbone, output_stride, BatchNorm)
+        self.backbone = build_backbone(backbone=backbone, output_stride=output_stride, BatchNorm=BatchNorm, pretrained=pretrained)
 
         self.freeze_bn = freeze_bn
 
