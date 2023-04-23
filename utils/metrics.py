@@ -15,7 +15,9 @@ class Evaluator(object):
 
     # 不同类各自的准确率
     def Accuracy_Class(self):
-        Acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
+        Acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=0)  # 行是预测值，列是真实值，按列求和
+        # print('对角线元素', np.diag(self.confusion_matrix))
+        # print('对行求和', self.confusion_matrix.sum(axis=0))
         # print("Acc是", Acc)
         Acc = np.nanmean(Acc)  # nanmean忽略掉空值进行求均值，不忽略掉空值计算会报错
         return Acc
