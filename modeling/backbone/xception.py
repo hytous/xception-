@@ -40,6 +40,8 @@ class Block(nn.Module):
                  start_with_relu=True, grow_first=True, is_last=False):
         super(Block, self).__init__()
 
+        # 残差（RES）  如果此block对的训练起不到增益就跳过此block，但是如果图片输入输出通道数或图片大小不一致的话要进行放缩操作,防止输入下一block时不满足输入要求
+        # 加入残差可以使网络收敛更快，绘图时表现出的曲线也更平滑
         if planes != inplanes or stride != 1:  # 输入通道数不等于输出通道数，或者卷积步长不为1，说明要改变通道数或者改变图片大小
             # 因为只有最大池化层会按照输入的stride改一次图像大小，所以RES只需要按照输入的stride改一次图像大小
             # block的通道数只会改变一次所以res也只需改一次
@@ -97,6 +99,7 @@ class Block(nn.Module):
         else:
             skip = inp
 
+        # 残差分支和主干分支相加
         x = x + skip
 
         return x
@@ -345,7 +348,7 @@ if __name__ == "__main__":
     model = AlignedXception(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=16)
     # input = torch.rand(1, 3, 512, 512)
     # input = torch.rand(5, 10, 512, 512)
-    input = torch.rand(5, 10, 434, 636)
+    input = torch.rand(5, 1, 434, 636)
     output, low_level_feat = model(input)
     # modules = [model]
     # # print(len(modules))  # 用来理解get_1x_lr_params在干嘛
