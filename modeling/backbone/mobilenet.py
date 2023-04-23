@@ -5,6 +5,7 @@ import math
 from modeling.sync_batchnorm.batchnorm import SynchronizedBatchNorm2d
 import torch.utils.model_zoo as model_zoo
 
+
 def conv_bn(inp, oup, stride, BatchNorm):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
@@ -68,7 +69,7 @@ class InvertedResidual(nn.Module):
 
 
 class MobileNetV2(nn.Module):
-    def __init__(self, output_stride=8, BatchNorm=None, width_mult=1., pretrained=True):
+    def __init__(self, output_stride=8, BatchNorm=None, width_mult=1, pretrained=True):
         super(MobileNetV2, self).__init__()
         block = InvertedResidual
         input_channel = 32
@@ -87,7 +88,8 @@ class MobileNetV2(nn.Module):
 
         # building first layer
         input_channel = int(input_channel * width_mult)
-        self.features = [conv_bn(3, input_channel, 2, BatchNorm)]
+        self.features = [conv_bn(1, input_channel, 2, BatchNorm)]
+        # self.features = [conv_bn(3, input_channel, 2, BatchNorm)]
         current_stride *= 2
         # building inverted residual blocks
         for t, c, n, s in interverted_residual_setting:
@@ -107,6 +109,9 @@ class MobileNetV2(nn.Module):
                     self.features.append(block(input_channel, output_channel, 1, dilation, t, BatchNorm))
                 input_channel = output_channel
         self.features = nn.Sequential(*self.features)
+
+        self.fc = nn.Linear(320, 4, bias=False)  # 2048通道对应到4类
+
         self._initialize_weights()
 
         if pretrained:
@@ -118,6 +123,11 @@ class MobileNetV2(nn.Module):
     def forward(self, x):
         low_level_feat = self.low_level_features(x)
         x = self.high_level_features(low_level_feat)
+
+        x = F.adaptive_avg_pool2d(x, (1, 1))
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)  # 全连接层
+
         return x, low_level_feat
 
     def _load_pretrained_model(self):
@@ -143,9 +153,11 @@ class MobileNetV2(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
+
 if __name__ == "__main__":
-    input = torch.rand(1, 3, 512, 512)
-    model = MobileNetV2(output_stride=16, BatchNorm=nn.BatchNorm2d)
+    # input = torch.rand(1, 3, 512, 512)
+    input = torch.rand(1, 1, 512, 512)
+    model = MobileNetV2(output_stride=16, BatchNorm=nn.BatchNorm2d, pretrained=False)
     output, low_level_feat = model(input)
     print(output.size())
     print(low_level_feat.size())
