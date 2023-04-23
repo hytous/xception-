@@ -26,11 +26,23 @@ class TrainedModleValidator(object):
         self.writer = self.summary.create_summary()
         # 载入数据
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
-        self.train_loader, self.val_loader, self.test_loader, self.nclass, self.class_names\
+        self.train_loader, self.val_loader, self.all_loader, self.nclass, self.class_names\
             = make_data_loader(args, **kwargs)
-        # 读取训练好的模型
-        model = torch.load(r'/root/tf-logs/experimentxception_13/checkpoint.pth.tar')
+        # 定义网络
+        model = Builder(num_classes=self.nclass,
+                        backbone=args.backbone,
+                        pretrained=False)
         self.model = model
+        # 读取训练好的模型
+        # checkpoint = torch.load(r'/root/tf-logs/experimentxception_13/checkpoint.pth.tar')
+        checkpoint = torch.load(r'/root/tf-logs/bestpredict_ever/model_best.pth.tar')
+        # 读取出来的键值最前面多了个module.所以删掉
+        checkpoint_dict = {}
+        for k, v in checkpoint['state_dict'].items():
+            new_k = k.replace('module.', '') if 'module' in k else k
+            checkpoint_dict[new_k] = v
+        # 载入模型数据
+        self.model.load_state_dict(checkpoint_dict)
         # Using cuda
         if args.cuda:
             # 使用nn.DataParallel函数来用多个GPU来加速训练
@@ -49,9 +61,12 @@ class TrainedModleValidator(object):
         if valortrain == 'train':
             tbar = tqdm(self.train_loader, desc='\r')  # 选择评估数据集并塞进进度条
             epoch = 0
-        else:
+        elif valortrain == 'val':
             tbar = tqdm(self.val_loader, desc='\r')  # 选择评估数据集并塞进进度条
             epoch = 1
+        elif valortrain == 'all':
+            tbar = tqdm(self.all_loader, desc='\r')  # 选择评估数据集并塞进进度条
+            epoch = 2
         test_loss = 0.0
         for i, sample in enumerate(tbar):
             image, target = sample['image'], sample['label']
@@ -65,7 +80,13 @@ class TrainedModleValidator(object):
             pred = output.data.cpu().numpy()  # 预测出的各类的概率
             target = target.cpu().numpy()  # 真实值
             pred = np.argmax(pred, axis=1)  # 选出概率最大的作为预测结果
-
+            for j, tr in enumerate(zip(target, pred)):
+                tru, pre = tr
+                if tru != pre:
+                    print('第%d组数据的第%d张图,预测值为%d,真实值为%d' % (i, j, pre, tru))
+            # for j, tru, pre in enumerate(zip(target, pred)):
+            #     if tru != pre:
+            #         print('第%d组数据的第%d张图,预测值为%d,真实值为%d' % (i, j, pre, tru))
             # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
         # 获得数据
@@ -78,9 +99,9 @@ class TrainedModleValidator(object):
                                                 num_classes=self.nclass,
                                                 class_names=self.class_names,
                                                 global_step=epoch)
-        self.writer.add_scalar('验证/total_loss_epoch', test_loss, epoch)
-        self.writer.add_scalar('验证/准确率', Acc, epoch)
-        self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
+        # self.writer.add_scalar('验证/total_loss_epoch', test_loss, epoch)
+        # self.writer.add_scalar('验证/准确率', Acc, epoch)
+        # self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
         if valortrain == 'train':
             print("train数据集的测试结果:")
         else:
@@ -91,9 +112,11 @@ class TrainedModleValidator(object):
 
 def main():
     parser = argparse.ArgumentParser(description="PyTorch ValidateTrainedModel")
-
+    parser.add_argument('--backbone', type=str, default='xception',
+                        choices=['resnet', 'xception', 'drn', 'mobilenet'],
+                        help='backbone name (default: resnet)')
     parser.add_argument('--dataset', type=str, default='fattyliver',
-                        choices=['pascal', 'coco', 'cityscapes', 'fattyliver'],  # 加入自己的数据集选项fattyliver
+                        choices=['pascal', 'coco', 'fattyliver'],  # 加入自己的数据集选项fattyliver
                         help='dataset name (default: fattyliver)')
     # 数据加载线程
     """
@@ -145,10 +168,26 @@ def main():
     torch.manual_seed(args.seed)
     valier = TrainedModleValidator(args)
 
-    valier.validation('train')  # 评估一下
-    valier.validation('val')  # 评估一下
+    # valier.validation('train')  # 评估一下
+    # valier.validation('val')  # 评估一下
+    valier.validation('all')  # 评估一下
     valier.writer.close()
 
 
 if __name__ == "__main__":
     main()
+"""
+有问题的数据
+第0组数据的第2张图,预测值为1,真实值为0
+第0组数据的第4张图,预测值为1,真实值为0
+第2组数据的第9张图,预测值为1,真实值为0
+第6组数据的第1张图,预测值为1,真实值为0
+第6组数据的第2张图,预测值为1,真实值为0
+第6组数据的第8张图,预测值为1,真实值为0
+第17组数据的第4张图,预测值为1,真实值为2
+第17组数据的第5张图,预测值为1,真实值为2
+第17组数据的第8张图,预测值为1,真实值为2
+第49组数据的第6张图,预测值为3,真实值为1
+第52组数据的第0张图,预测值为1,真实值为3
+第52组数据的第7张图,预测值为1,真实值为3
+"""
