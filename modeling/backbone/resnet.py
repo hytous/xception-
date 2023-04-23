@@ -1,8 +1,9 @@
 import math
 import torch.nn as nn
+import torch
+import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from modeling.sync_batchnorm.batchnorm import SynchronizedBatchNorm2d
-
 
 class Bottleneck(nn.Module):
     expansion = 4  # 膨胀
@@ -43,6 +44,7 @@ class Bottleneck(nn.Module):
 
         return out
 
+
 class ResNet(nn.Module):
 
     def __init__(self, block, layers, output_stride, BatchNorm, pretrained=True):
@@ -59,17 +61,28 @@ class ResNet(nn.Module):
             raise NotImplementedError
 
         # Modules
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                                bias=False)
+        # self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
+        #                        bias=False)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
         self.bn1 = BatchNorm(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(block, 64, layers[0], stride=strides[0], dilation=dilations[0], BatchNorm=BatchNorm)
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=strides[1], dilation=dilations[1], BatchNorm=BatchNorm)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=strides[2], dilation=dilations[2], BatchNorm=BatchNorm)
-        self.layer4 = self._make_MG_unit(block, 512, blocks=blocks, stride=strides[3], dilation=dilations[3], BatchNorm=BatchNorm)
+        self.layer1 = self._make_layer(block, 64, layers[0], stride=strides[0], dilation=dilations[0],
+                                       BatchNorm=BatchNorm)
+        self.layer2 = self._make_layer(block, 128, layers[1], stride=strides[1], dilation=dilations[1],
+                                       BatchNorm=BatchNorm)
+        self.layer3 = self._make_layer(block, 256, layers[2], stride=strides[2], dilation=dilations[2],
+                                       BatchNorm=BatchNorm)
+        self.layer4 = self._make_MG_unit(block, 512, blocks=blocks, stride=strides[3], dilation=dilations[3],
+                                         BatchNorm=BatchNorm)
         # self.layer4 = self._make_layer(block, 512, layers[3], stride=strides[3], dilation=dilations[3], BatchNorm=BatchNorm)
+
+        # 缺一个全局平均池化
+        # 全连接层
+        self.fc = nn.Linear(2048, 4, bias=False)  # 2048通道对应到4类
+
         self._init_weight()
 
         if pretrained:
@@ -102,12 +115,12 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, dilation=blocks[0]*dilation,
+        layers.append(block(self.inplanes, planes, stride, dilation=blocks[0] * dilation,
                             downsample=downsample, BatchNorm=BatchNorm))
         self.inplanes = planes * block.expansion
         for i in range(1, len(blocks)):
             layers.append(block(self.inplanes, planes, stride=1,
-                                dilation=blocks[i]*dilation, BatchNorm=BatchNorm))
+                                dilation=blocks[i] * dilation, BatchNorm=BatchNorm))
 
         return nn.Sequential(*layers)
 
@@ -122,6 +135,20 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+
+        # 全局平均池化
+        # 参考了
+        # https://github.com/Cadene/pretrained-models.pytorch/blob/master/pretrainedmodels/models/xception.py
+        # 里的logits函数
+        x = F.adaptive_avg_pool2d(x, (1, 1))
+        # print("全局平均池化之后是这样的: ", x.size())  # [batch_size, 2048, 1, 1]
+
+        # x.view()就是对tensor进行reshape。将向量铺平，便于传入全连接层
+        # view里的 -1 表示一个不确定的数，就是你如果不确定你想要reshape成几列，但是你很肯定要reshape成batch_size（即x.size(0)）行，
+        # 那不确定的地方就可以写成 - 1
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)  # 全连接层
+        # print("全连接完是这样的: ", x.size())  # torch.Size([batch_size, classes])
         return x, low_level_feat
 
     def _init_weight(self):
@@ -141,10 +168,17 @@ class ResNet(nn.Module):
         model_dict = {}
         state_dict = self.state_dict()
         for k, v in pretrain_dict.items():
-            if k in state_dict:
+            if k.startswith('conv1.weight'):  # 输入通道从3->64改为1->64
+                v = torch.randn((64, 1, 7, 7))
+                model_dict[k] = v
+            elif k.startswith('fc.weight'):  # 全连接层预训练模型是[1000, 2048]，原模型有1000个类
+                v = torch.randn((4, 2048))
+                model_dict[k] = v
+            elif k in state_dict:
                 model_dict[k] = v
         state_dict.update(model_dict)
         self.load_state_dict(state_dict)
+
 
 def ResNet101(output_stride, BatchNorm, pretrained=True):
     """Constructs a ResNet-101 model.
@@ -154,10 +188,13 @@ def ResNet101(output_stride, BatchNorm, pretrained=True):
     model = ResNet(Bottleneck, [3, 4, 23, 3], output_stride, BatchNorm, pretrained=pretrained)
     return model
 
+
 if __name__ == "__main__":
     import torch
+
     model = ResNet101(BatchNorm=nn.BatchNorm2d, pretrained=True, output_stride=8)
-    input = torch.rand(1, 3, 512, 512)
+    # input = torch.rand(1, 3, 512, 512)
+    input = torch.rand(1, 1, 434, 636)
     output, low_level_feat = model(input)
     print(output.size())
     print(low_level_feat.size())
