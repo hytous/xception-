@@ -87,7 +87,7 @@ class TensorboardSummary(object):
             )
 
         plt.tight_layout()
-        plt.ylabel("True label")
-        plt.xlabel("Predicted label")
+        plt.ylabel("Predicted label")
+        plt.xlabel("True label")
 
         return figure
