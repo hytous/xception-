@@ -14,9 +14,9 @@ from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
 from utils.plt import draw_fig
-# 全局取消证书验证
-import ssl
-ssl._create_default_https_context = ssl._create_unverified_context
+# # 全局取消证书验证
+# import ssl
+# ssl._create_default_https_context = ssl._create_unverified_context
 
 
 class Trainer(object):
@@ -25,21 +25,23 @@ class Trainer(object):
 
         # Define Saver
         self.saver = Saver(args)
-        self.saver.save_experiment_config()
+        self.saver.save_experiment_config()   # 存储args
         # Define Tensorboard Summary 可视化
         self.summary = TensorboardSummary(self.saver.experiment_dir)
         self.writer = self.summary.create_summary()
 
         # Define Dataloader  用dataloaders文件夹init文件里，自己写的make_data_loader方法载入数据
         kwargs = {'num_workers': args.workers, 'pin_memory': True}
-        self.train_loader, self.val_loader, self.test_loader, self.nclass = make_data_loader(args, **kwargs)
+        self.train_loader, self.val_loader, self.test_loader, self.nclass, self.class_names \
+            = make_data_loader(args, **kwargs)
 
         # 定义网络
         model = Builder(num_classes=self.nclass,
                         backbone=args.backbone,
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
-                        freeze_bn=args.freeze_bn)
+                        freeze_bn=args.freeze_bn,
+                        pretrained=False)
 
         # 获得每层的参数，并规定学习率
         params = model.get_1x_lr_params()
@@ -116,6 +118,20 @@ class Trainer(object):
               in the case of `K`-dimensional loss.
             - Target: If containing class indices, shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with
             多分类用的格式是Input：(N, C)， Target：(N)   其中N是batch_size然后C是类别数
+            
+            Examples::
+            >> >  # Example of target with class indices
+            >> > loss = nn.CrossEntropyLoss()
+            >> > input = torch.randn(3, 5, requires_grad=True)
+            >> > target = torch.empty(3, dtype=torch.long).random_(5)
+            >> > output = loss(input, target)
+            >> > output.backward()
+            >> >
+            >> >  # Example of target with class probabilities
+            >> > input = torch.randn(3, 5, requires_grad=True)
+            >> > target = torch.randn(3, 5).softmax(dim=1)
+            >> > output = loss(input, target)
+            >> > output.backward()
             """
             loss = self.criterion(output, target)
             loss.backward()  # 反向传播，计算当前梯度
@@ -176,7 +192,9 @@ class Trainer(object):
             tbar.set_description('Test loss: %.3f' % (test_loss / (i + 1)))
             pred = output.data.cpu().numpy()
             target = target.cpu().numpy()  # 真实值
+            # print("各类的预测概率 :", pred)
             pred = np.argmax(pred, axis=1)  # 选出计算出的概率最大的作为预测结果
+            # print("预测结果 :", pred)
             # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
 
@@ -187,13 +205,16 @@ class Trainer(object):
         class_names = ['health', 'mild', 'moderate', 'severe']  # 健康 轻度 中度 重度
         # subset_ids = list(range(4))
         # 绘制混淆矩阵
-        self.summary.visualize_confusion_matrix(writer=self.writer,  confusion_matrix=confusion_matrix, num_classes=4,
-                                                class_names=class_names,  global_step=epoch)
+        self.summary.visualize_confusion_matrix(writer=self.writer,
+                                                confusion_matrix=confusion_matrix,
+                                                num_classes=self.nclass,
+                                                class_names=self.class_names,
+                                                global_step=epoch)
         self.writer.add_scalar('验证/total_loss_epoch', test_loss, epoch)
         self.writer.add_scalar('验证/准确率', Acc, epoch)
         self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
         print('验证结果:')
-        print('[第%d代, 图片数: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
+        print('[第%d代, 图片数:%5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
         print("准确率:{}, 类准确率:{}".format(Acc, Acc_class))
         print('Loss: %.3f' % test_loss)
 
@@ -337,8 +358,8 @@ def main():
     # parser.add_argument('--no-cuda', action='store_false', default=
     # False, help='disables CUDA training')
     # 用cuda
-    parser.add_argument('--no-cuda', action='store_false', default=
-    False, help='disables CUDA training')
+    parser.add_argument('--no-cuda', action='store_false', default=False,
+                        help='disables CUDA training')
     # gpu号 选择用哪个gpu训练 ，输入必须是逗号分隔的整数列表
     parser.add_argument('--gpu-ids', type=str, default='0',
                         help='use which gpu to train, must be a \
@@ -351,7 +372,7 @@ def main():
     parser.add_argument('--resume', type=str, default=None,
                         help='put the path to resuming file if needed')
     # 设置检查点的名字
-    parser.add_argument('--checkname', type=str, default=r'./mymodel/Xception/checkpoint',
+    parser.add_argument('--checkname', type=str, default=r'/root/tf-logs/',
                         help='set the checkpoint name')
     # finetuning pre-trained models 微调预训练模型
     # 因数据集不同而进行微调
@@ -388,7 +409,7 @@ def main():
             'coco': 30,
             'cityscapes': 200,
             'pascal': 50,
-            'fattyliver': 50,  # 脂肪肝先训练50代
+            'fattyliver': 500,  # 脂肪肝先训练50代
         }
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
