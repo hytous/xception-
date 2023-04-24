@@ -41,7 +41,7 @@ class Trainer(object):
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn,
-                        pretrained=False)
+                        pretrained=True)
 
         # 获得每层的参数，并规定学习率
         params = model.get_1x_lr_params()
