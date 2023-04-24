@@ -39,8 +39,8 @@ def get_data():  # 获取数据
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
         # print('编号为%d的病人fat程度%d  fat种类%d' % (i, fat, fatclass))
         try:
-            # if i in val_index:  # 隔11个数据抽一组作为验证集，验证机中总共5组
-            if i % 11 == 0:
+            if i in val_index:  # 隔11个数据抽一组作为验证集，验证机中总共5组
+            # if i % 11 == 0:
                 # print('验证集fat程度%d  fat种类%d' % (fat, fatclass))
                 for img in img_batch:
                     img = np.expand_dims(img, axis=0)  # 增维
