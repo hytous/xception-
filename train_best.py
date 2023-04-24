@@ -41,7 +41,7 @@ class Trainer(object):
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn,
-                        pretrained=False)
+                        pretrained=True)
 
         # 获得每层的参数，并规定学习率
         params = model.get_1x_lr_params()
@@ -76,16 +76,10 @@ class Trainer(object):
             self.model = torch.nn.DataParallel(self.model, device_ids=self.args.gpu_ids)
             patch_replication_callback(self.model)
             self.model = self.model.cuda()
-
-        checkpoint = torch.load(r'/root/tf-logs/bestpredict_ever/model_best.pth.tar')
-        # 读取出来的键值最前面多了个module.所以删掉
-        checkpoint_dict = {}
-        for k, v in checkpoint['state_dict'].items():
-            new_k = k.replace('module.', '') if 'module' in k else k
-            checkpoint_dict[new_k] = v
-        # 载入模型数据
-        self.model.load_state_dict(checkpoint_dict)
-
+        # # 加载我的模型
+        # checkpoint = torch.load(r'/root/tf-logs/bestpredict_ever/model_best.pth.tar')
+        # # 载入模型数据
+        # self.model.load_state_dict(checkpoint['state_dict'])
         # Resuming checkpoint
         self.best_pred = 0.0
         if args.resume is not None:
@@ -227,7 +221,7 @@ class Trainer(object):
         print('Loss: %.3f' % test_loss)
 
         new_pred = Acc  # 以准确率作为评价指标来选定训练最好的一代
-        if new_pred > self.best_pred:
+        if new_pred >= self.best_pred:
             is_best = True
             self.best_pred = new_pred
             self.saver.save_checkpoint({
@@ -334,7 +328,7 @@ def main():
     # parser.add_argument('--batch-size', type=int, default=None,
     #                     metavar='N', help='input batch size for \
     #                             training (default: auto)')
-    parser.add_argument('--batch-size', type=int, default=10,
+    parser.add_argument('--batch-size', type=int, default=5,
                         metavar='N', help='input batch size for \
                                 training (default: auto)')
     # 测试时batch的大小
@@ -417,7 +411,7 @@ def main():
             'coco': 30,
             'cityscapes': 200,
             'pascal': 50,
-            'fattyliver': 500,  # 脂肪肝先训练50代
+            'fattyliver': 100,  # 脂肪肝先训练50代
         }
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
@@ -433,7 +427,7 @@ def main():
             'coco': 0.1,
             'cityscapes': 0.01,
             'pascal': 0.007,
-            'fattyliver': 0.007,
+            'fattyliver': 0.0007,
         }
         # .lower()英文全转为小写
         # args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
@@ -452,6 +446,8 @@ def main():
     # acc = []  # 存储准确率
     print("是否使用cuda", trainer.args.cuda)
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
+        # if epoch == 0:
+        #     trainer.validation(epoch)  # 评估一下
         trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
         if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
