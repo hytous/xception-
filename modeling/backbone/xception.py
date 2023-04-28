@@ -251,6 +251,7 @@ class AlignedXception(nn.Module):
         x = self.relu(x)  # [batch_size, 2048, 28, 40]
         # print("512大小的时候输出的x的size", x.size())  # [batch_size, 2048, 32, 32])
         # mat1 and mat2 shapes cannot be multiplied (286720x40 and 2048x4)
+        high_level_feat = x
 
         # 全局平均池化
         # 参考了
@@ -265,7 +266,7 @@ class AlignedXception(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)  # 全连接层
         # print("全连接完是这样的: ", x.size())  # torch.Size([5, 4])
-        return x, low_level_feat
+        return x, high_level_feat
 
     def _init_weight(self):
         for m in self.modules():
@@ -319,28 +320,6 @@ class AlignedXception(nn.Module):
                     model_dict[k] = v
         state_dict.update(model_dict)
         self.load_state_dict(state_dict)
-
-    # 返回每层需要被训练的参数
-    def get_1x_lr_params(self):
-        modules = [self.backbone]
-        for i in range(len(modules)):
-            # modules[0]里存了所有层的名称、参数等信息
-            for m in modules[i].named_modules():  # modules存的是各个层的名称、参数信息、权重等要被训练的东西,modules[0]有所有层的信息
-                if self.freeze_bn:
-                    if isinstance(m[1], nn.Conv2d):
-                        # 输出m[1]是: 层的类别(参数)
-                        # 比如：Conv2d(10, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
-                        for p in m[1].parameters():
-                            # 关于.requires_grad， 需要保留该tensor的梯度信息，用于前向传播。保留的就是要被训练的，不保留的没法训练
-                            # https://blog.csdn.net/weixin_44696221/article/details/104269981
-                            if p.requires_grad:  # 要被训练
-                                yield p
-                else:
-                    if isinstance(m[1], nn.Conv2d) or isinstance(m[1], SynchronizedBatchNorm2d) \
-                            or isinstance(m[1], nn.BatchNorm2d):
-                        for p in m[1].parameters():
-                            if p.requires_grad:
-                                yield p
 
 if __name__ == "__main__":
     import torch
