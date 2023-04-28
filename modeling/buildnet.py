@@ -28,8 +28,8 @@ class Builder(nn.Module):
         # self.fc = nn.Linear(5418, 4, bias=False)
 
     def forward(self, input):
-        x, low_level_feat = self.backbone(input)
-        return x
+        x, high_level_feat = self.backbone(input)
+        return x, high_level_feat
 
     def freeze_bn(self):
         for m in self.modules():
