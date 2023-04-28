@@ -135,6 +135,7 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
+        high_level_feat = x
 
         # 全局平均池化
         # 参考了
@@ -149,7 +150,7 @@ class ResNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)  # 全连接层
         # print("全连接完是这样的: ", x.size())  # torch.Size([batch_size, classes])
-        return x, low_level_feat
+        return x, high_level_feat
 
     def _init_weight(self):
         for m in self.modules():
