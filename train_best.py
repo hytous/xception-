@@ -13,6 +13,7 @@ from utils.lr_scheduler import LR_Scheduler
 from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
+from utils.GradCAM import GradCam
 from utils.plt import draw_fig
 # # 全局取消证书验证
 # import ssl
@@ -41,7 +42,7 @@ class Trainer(object):
                         output_stride=args.out_stride,
                         sync_bn=args.sync_bn,
                         freeze_bn=args.freeze_bn,
-                        pretrained=True)
+                        pretrained=False)
 
         # 获得每层的参数，并规定学习率
         params = model.get_1x_lr_params()
@@ -70,6 +71,8 @@ class Trainer(object):
         # Define lr scheduler  学习率调整器
         self.scheduler = LR_Scheduler(args.lr_scheduler, args.lr,
                                       args.epochs, len(self.train_loader))
+        # 热力图生成器
+        self.gradcam = GradCam(self.model)
         # Using cuda
         if args.cuda:
             # 使用nn.DataParallel函数来用多个GPU来加速训练
@@ -113,7 +116,7 @@ class Trainer(object):
                 image, target = image.cuda(), target.cuda()
             self.scheduler(self.optimizer, i, epoch, self.best_pred)
             self.optimizer.zero_grad()  # 清空过往梯度
-            output = self.model(image)  # [batch_size, 类别数]
+            output, feature = self.model(image)  # [batch_size, 类别数]
             """
             criterion的输入，这里用的是交叉熵，输入格式如下
             - Input: Shape :math:`(C)`, :math:`(N, C)` or :math:`(N, C, d_1, d_2, ..., d_K)` with :math:`K \geq 1`
@@ -138,29 +141,21 @@ class Trainer(object):
             loss = self.criterion(output, target)
             loss.backward()  # 反向传播，计算当前梯度
             self.optimizer.step()  # 根据梯度更新网络参数
-            # print("本次loss为", loss)
-            # print("train_loss+= loss.item()前为", train_loss)
             train_loss += loss.item()  # .item返回的是该元素值的高精度值
-            # print("train_loss为", train_loss)
             tbar.set_description('训练出的loss值: %.3f' % (train_loss / (i + 1)))  # %.3f表示输出三位浮点数
             self.writer.add_scalar('训练/total_loss_iter', loss.item(), i + num_img_tr * epoch)  # 在所有数据中排第n个
 
-            # 每个周期显示10 * 3个推断结果
+            # 显示热力图，每次训练一共显示10次
             if i % (num_img_tr // 10) == 0:  # //代表整数除法，向下取整
                 global_step = i + num_img_tr * epoch  # 在所有数据中排第n个
-
-                image0 = image[:, 0, :, :].clone()  # 显示第一张图
-                # print("image0的shape", image0.size())
-                # image0 = np.expand_dims(image0, axis=0)  # 扩充一维
-                # print("变成tensor前image0是这样的", image0)
-
-                # image0 = torch.tensor(image0)
-
-                # print("变成tensor后image0是这样的", image0)
-
-                # self.summary.visualize_image(self.writer, self.args.dataset, image, target, output, global_step)
-                self.summary.visualize_image(self.writer, self.args.dataset, image0, target, output, global_step)  # 显示图
-
+                img = image.cpu().numpy()
+                image0 = self.gradcam.__call__(image)
+                img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+                img = np.concatenate((img, image0))  # 默认在第0维上进行数组的连接
+                img = torch.tensor(img)  # 转化维tensor
+                self.summary.visualize_image(self.writer, self.args.dataset, img, target, output, global_step)
+                self.model.train()  # 计算热力图的时候把model从train改成eval了
+        # 输出参数
         self.writer.add_scalar('训练/某代的总loss值', train_loss, epoch)
         print('[第 : %d 代, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
         print('总Loss值: %.3f' % train_loss)
@@ -188,7 +183,7 @@ class Trainer(object):
             if self.args.cuda:
                 image, target = image.cuda(), target.cuda()
             with torch.no_grad():
-                output = self.model(image)
+                output, feature = self.model(image)
             loss = self.criterion(output, target)
             test_loss += loss.item()
             tbar.set_description('Test loss: %.3f' % (test_loss / (i + 1)))
@@ -260,7 +255,7 @@ def main():
     # parser.add_argument('--backbone', type=str, default='resnet',
     #                     choices=['resnet', 'xception', 'drn', 'mobilenet'],
     #                     help='backbone name (default: resnet)')
-    parser.add_argument('--backbone', type=str, default='xception',
+    parser.add_argument('--backbone', type=str, default='resnet',
                         choices=['resnet', 'xception', 'drn', 'mobilenet'],
                         help='backbone name (default: resnet)')
     # 输出步长 默认是8。是用于图像分割的参数，应该是和ASPP和deeplabc3plus算法相关
@@ -408,10 +403,7 @@ def main():
     # default settings for epochs, batch_size and lr 设置迭代次数、batch大小、学习率的默认值
     if args.epochs is None:  # 设置在不同数据集上迭代次数的默认值
         epoches = {
-            'coco': 30,
-            'cityscapes': 200,
-            'pascal': 50,
-            'fattyliver': 100,  # 脂肪肝先训练50代
+            'fattyliver': 100,  # 脂肪肝训练代数
         }
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
@@ -424,10 +416,9 @@ def main():
 
     if args.lr is None:  # 设置在不同数据集上学习率的默认值
         lrs = {
-            'coco': 0.1,
-            'cityscapes': 0.01,
-            'pascal': 0.007,
-            'fattyliver': 0.0007,
+            'fattyliverresnet': 0.07,
+            # 'fattyliver': 0.0007,
+            'fattyliver': 0.07,
         }
         # .lower()英文全转为小写
         # args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
@@ -442,23 +433,12 @@ def main():
     trainer = Trainer(args)
     print('起始代:', trainer.args.start_epoch)  # 开始迭代 默认从第0代开始
     print('总迭代次数:', trainer.args.epochs)  # 总迭代次数
-    # loss = []  # 存储loss，用于显示
-    # acc = []  # 存储准确率
     print("是否使用cuda", trainer.args.cuda)
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
-        # if epoch == 0:
-        #     trainer.validation(epoch)  # 评估一下
         trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
         if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
-            # epoch_acc, epoch_loss = trainer.validation(epoch)  # 评估一下
             trainer.validation(epoch)  # 评估一下
-            # loss.append(epoch_loss)
-            # acc.append(epoch_acc)
-
-    # 画图
-    # draw_fig(loss, "loss", epoch)
-    # draw_fig(acc, "acc", epoch)
     trainer.writer.close()
 
 
