@@ -59,7 +59,7 @@ class GradCam:
             heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[2]))  # 将热力图的大小调整为与原始图像相同
             heatmap = np.uint8(255 * heatmap)  # 将热力图转换为RGB格式
             heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)  # 将热力图变成伪彩色图像
-            img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+            # img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
             # print("img的shape", img.shape)
             img = np.swapaxes(img, 0, 2)  # 交换第一维和第三维
             superimposed_img = heatmap * 0.4 + img  # 这里的0.4是热力图强度因子
