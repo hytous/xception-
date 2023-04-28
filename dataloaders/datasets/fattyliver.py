@@ -1,6 +1,8 @@
 from torch.utils.data import Dataset
 import torch
 import numpy as np
+from torchvision import transforms
+from PIL import Image
 
 # 读取mat文件
 import scipy.io as scio
@@ -18,9 +20,9 @@ def get_data():  # 获取数据
     val_label = []
     # 可以用matlab查看数据形式
     # allmatdatas = scio.loadmat(
-    #     r'../dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在本文件内运行时的相对路径
+    #     r'./dataloaders/dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在train文件内运行时的相对路径
     allmatdatas = scio.loadmat(
-        r'./dataloaders/dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在train文件内运行时的相对路径
+        r'../dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在本文件内运行时的相对路径
     matdatas = allmatdatas['data']
     matdatas = matdatas[0]
     for i, matdata in enumerate(matdatas):  # 总共55组图片  enumerate可以在for里多加一个计数器i
@@ -35,24 +37,47 @@ def get_data():  # 获取数据
             fatclass = 2  # 中度脂肪肝
         elif 46 <= fat:  # 56
             fatclass = 3  # 重度脂肪肝
-
+        # 数据增强
+        transform = transforms.Compose([
+            transforms.RandomRotation(degrees=15),  # 随机旋转15度
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.Resize(size=(434, 636)),
+            transforms.ToTensor(),
+        ])
+        # 进行伽马变换
+        # gamma变换的gamma值
+        gamma_value = 2
+        gamma_transform = transforms.Compose([
+            transforms.Lambda(lambda x: ((x/255.0) ** gamma_value)*255),  # x的gamma_value次方
+            transforms.ToTensor(),
+        ])
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
         # print('编号为%d的病人fat程度%d  fat种类%d' % (i, fat, fatclass))
-        try:
-            if i in val_index:  # 隔11个数据抽一组作为验证集，验证机中总共5组
-            # if i % 11 == 0:
-                # print('验证集fat程度%d  fat种类%d' % (fat, fatclass))
-                for img in img_batch:
-                    img = np.expand_dims(img, axis=0)  # 增维
+        for img in img_batch:
+            or_img = img  # 原图
+            img = np.expand_dims(img, axis=0)  # 增维
+            img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+            try:
+                if i in val_index:  # 抽取验证集
                     val_data.append(img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
                     val_label.append(fatclass)
-            else:
-                for img in img_batch:
-                    img = np.expand_dims(img, axis=0)  # 增维
-                    train_data.append(img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
-                    train_label.append(fatclass)
-        except Exception as e:
-            print(e)
+                else:
+                    img_comb = [img]  # 原图和数据增强的集合
+                    PIL_image = Image.fromarray(or_img)  # ndarray转PIL图片，还在最前面加了1维
+                    trans_img = transform(PIL_image)  # 数据增强
+                    trans_img = np.tile(trans_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+                    img_comb.append(trans_img)  # 将数据增强图加进去
+                    gamma_img = gamma_transform(or_img)  # gamma变换
+                    gamma_img = np.tile(gamma_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+                    img_comb.append(gamma_img)  # 将gamma变换数据增强图加进d去
+                    # print("gamma变换后的shape", gamma_img.shape)
+                    for train_img in img_comb:
+                        # print("train_img的格式 :", train_img.shape)
+                        train_data.append(train_img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
+                        train_label.append(fatclass)
+            except Exception as e:
+                print(e)
+
     return np.array(train_data), np.array(train_label), np.array(val_data), np.array(val_label)
 
 
