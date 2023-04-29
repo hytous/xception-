@@ -15,6 +15,8 @@ from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
 from utils.GradCAM import GradCam
 from utils.plt import draw_fig
+
+
 # # 全局取消证书验证
 # import ssl
 # ssl._create_default_https_context = ssl._create_unverified_context
@@ -26,7 +28,7 @@ class Trainer(object):
 
         # Define Saver
         self.saver = Saver(args)
-        self.saver.save_experiment_config()   # 存储args
+        self.saver.save_experiment_config()  # 存储args
         # Define Tensorboard Summary 可视化
         self.summary = TensorboardSummary(self.saver.experiment_dir)
         self.writer = self.summary.create_summary()
@@ -145,16 +147,16 @@ class Trainer(object):
             tbar.set_description('训练出的loss值: %.3f' % (train_loss / (i + 1)))  # %.3f表示输出三位浮点数
             self.writer.add_scalar('训练/total_loss_iter', loss.item(), i + num_img_tr * epoch)  # 在所有数据中排第n个
 
-            # 显示热力图，每次训练一共显示10次
-            if i % (num_img_tr // 10) == 0:  # //代表整数除法，向下取整
-                global_step = i + num_img_tr * epoch  # 在所有数据中排第n个
-                img = image.cpu().numpy()
-                image0 = self.gradcam.__call__(image)
-                img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
-                img = np.concatenate((img, image0))  # 默认在第0维上进行数组的连接
-                img = torch.tensor(img)  # 转化维tensor
-                self.summary.visualize_image(self.writer, self.args.dataset, img, target, output, global_step)
-                self.model.train()  # 计算热力图的时候把model从train改成eval了
+            # # 显示热力图，每次训练一共显示10次
+            # if i % (num_img_tr // 10) == 0:  # //代表整数除法，向下取整
+            #     global_step = i + num_img_tr * epoch  # 在所有数据中排第n个
+            #     img = image.cpu().numpy()
+            #     image0 = self.gradcam.__call__(image)
+            #     # img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+            #     img = np.concatenate((img, image0))  # 默认在第0维上进行数组的连接
+            #     img = torch.tensor(img)  # 转化维tensor
+            #     self.summary.visualize_image(self.writer, self.args.dataset, img, target, output, global_step)
+            #     self.model.train()  # 计算热力图的时候把model从train改成eval了
         # 输出参数
         self.writer.add_scalar('训练/某代的总loss值', train_loss, epoch)
         print('[第 : %d 代, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
@@ -194,6 +196,15 @@ class Trainer(object):
             # print("预测结果 :", pred)
             # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
+
+            if i == epoch % 10:  # 每次验证显示一组就行
+                global_step = epoch  # 在所有数据中排第n个
+                img = image.cpu().numpy()
+                image0 = self.gradcam.__call__(image)
+                # img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+                img = np.concatenate((img, image0))  # 默认在第0维上进行数组的连接
+                img = torch.tensor(img)  # 转化维tensor
+                self.summary.visualize_image(self.writer, img, global_step)  # 显示
 
         # Fast test during the training
         Acc = self.evaluator.Accuracy()  # 准确率
@@ -323,11 +334,11 @@ def main():
     # parser.add_argument('--batch-size', type=int, default=None,
     #                     metavar='N', help='input batch size for \
     #                             training (default: auto)')
-    parser.add_argument('--batch-size', type=int, default=5,
+    parser.add_argument('--batch-size', type=int, default=10,
                         metavar='N', help='input batch size for \
                                 training (default: auto)')
     # 测试时batch的大小
-    parser.add_argument('--test-batch-size', type=int, default=None,
+    parser.add_argument('--test-batch-size', type=int, default=5,
                         metavar='N', help='input batch size for \
                                 testing (default: auto)')
     # 训练数据样本不均衡（比如某类样本占80%）时使用
@@ -403,7 +414,7 @@ def main():
     # default settings for epochs, batch_size and lr 设置迭代次数、batch大小、学习率的默认值
     if args.epochs is None:  # 设置在不同数据集上迭代次数的默认值
         epoches = {
-            'fattyliver': 100,  # 脂肪肝训练代数
+            'fattyliver': 500,  # 脂肪肝训练代数
         }
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
@@ -418,7 +429,7 @@ def main():
         lrs = {
             'fattyliverresnet': 0.07,
             # 'fattyliver': 0.0007,
-            'fattyliver': 0.07,
+            'fattyliver': 0.007,
         }
         # .lower()英文全转为小写
         # args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
