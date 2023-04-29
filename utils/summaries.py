@@ -18,7 +18,7 @@ class TensorboardSummary(object):
         writer = SummaryWriter(log_dir=os.path.join(self.directory))
         return writer
 
-    def visualize_image(self, writer, dataset, image, target, output, global_step):
+    def visualize_image(self, writer, image, global_step):
         # grid_image = make_grid(image[:3].clone().cpu().data, 3, normalize=True)  # 一次显示多个图
         grid_image = make_grid(image, 5, normalize=True)  # 一次显示多个图
         writer.add_image('Image', grid_image, global_step)
