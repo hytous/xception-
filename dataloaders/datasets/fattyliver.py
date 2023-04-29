@@ -19,10 +19,10 @@ def get_data():  # 获取数据
     val_data = []
     val_label = []
     # 可以用matlab查看数据形式
-    # allmatdatas = scio.loadmat(
-    #     r'./dataloaders/dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在train文件内运行时的相对路径
     allmatdatas = scio.loadmat(
-        r'../dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在本文件内运行时的相对路径
+        r'./dataloaders/dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在train文件内运行时的相对路径
+    # allmatdatas = scio.loadmat(
+    #     r'../dataset_liver_bmodes_steatosis_assessment_IJCARS.mat')  # 在本文件内运行时的相对路径
     matdatas = allmatdatas['data']
     matdatas = matdatas[0]
     for i, matdata in enumerate(matdatas):  # 总共55组图片  enumerate可以在for里多加一个计数器i
@@ -67,9 +67,9 @@ def get_data():  # 获取数据
                     trans_img = transform(PIL_image)  # 数据增强
                     trans_img = np.tile(trans_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
                     img_comb.append(trans_img)  # 将数据增强图加进去
-                    gamma_img = gamma_transform(or_img)  # gamma变换
-                    gamma_img = np.tile(gamma_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
-                    img_comb.append(gamma_img)  # 将gamma变换数据增强图加进d去
+                    # gamma_img = gamma_transform(or_img)  # gamma变换
+                    # gamma_img = np.tile(gamma_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+                    # img_comb.append(gamma_img)  # 将gamma变换数据增强图加进d去
                     # print("gamma变换后的shape", gamma_img.shape)
                     for train_img in img_comb:
                         # print("train_img的格式 :", train_img.shape)
@@ -108,6 +108,7 @@ def get_all_data():  # 获取数据
         try:
             for img in img_batch:
                 img = np.expand_dims(img, axis=0)  # 增维
+                img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
                 all_data.append(img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
                 all_label.append(fatclass)
         except Exception as e:
