@@ -6,6 +6,7 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 
 
+# 绘制热力图
 class GradCam:
     def __init__(self, model):
         self.model = model.eval()
