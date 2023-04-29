@@ -63,11 +63,13 @@ def get_data():  # 获取数据
                     val_label.append(fatclass)
                 else:
                     img_comb = [img]  # 原图和数据增强的集合
-                    if 35 <= fat <= 45:  # 55
-                        img_comb.append(img)
-                    if 26 <= fat <= 35:  # 55
+                    if 26 <= fat <= 45:  # 55
                         img_comb.append(img)
                         img_comb.append(img)
+                        img_comb.append(img)
+                    # if 26 <= fat <= 35:  # 55
+                    #     img_comb.append(img)
+                    #     img_comb.append(img)
                     PIL_image = Image.fromarray(or_img)  # ndarray转PIL图片，还在最前面加了1维
                     trans_img = transform(PIL_image)  # 数据增强
                     trans_img = np.tile(trans_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
