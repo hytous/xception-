@@ -19,6 +19,7 @@ class SegmentationLosses(object):
         else:
             raise NotImplementedError
 
+    # 交叉熵
     def CrossEntropyLoss(self, logit, target):
 
         # n, c, h, w = logit.size()
@@ -27,17 +28,6 @@ class SegmentationLosses(object):
                                         size_average=self.size_average)
         if self.cuda:
             criterion = criterion.cuda()
-
-        # batchsize现在为5，到时候可能要改
-        # 构建一下target的概率数组
-        # changed_target = np.zeros((n, c))
-        # for i in range(n):
-        #     changed_target[i][target[i]] = 1  # 已知属于该类，概率为1
-        # changed_target = torch.tensor(changed_target).cuda()
-        # print(changed_target)
-        # torch.nn.Softmax(dim=1)(changed_target)
-        # print('softmax后', changed_target)
-        # loss = criterion(logit, changed_target)
         loss = criterion(logit, target.long())
 
         if self.batch_average:
