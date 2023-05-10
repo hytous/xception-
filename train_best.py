@@ -195,7 +195,7 @@ class Trainer(object):
             # print("预测结果 :", pred)
             # 将一个batch的预测结果和真实值传入评估器，并在其内部生成混淆矩阵
             self.evaluator.add_batch(target, pred)
-
+            # 画热力图
             if i == epoch % 10:  # 每次验证显示一组就行
                 global_step = epoch  # 在所有数据中排第n个
                 img = image.cpu().numpy()
