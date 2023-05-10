@@ -1,6 +1,7 @@
 from torch.utils.data import Dataset
 import torch
 import numpy as np
+import cv2
 from torchvision import transforms
 from PIL import Image
 
@@ -12,8 +13,23 @@ img_chang = 434
 img_kuan = 636
 
 
+# gamma变换
+def gamma_correction(image, gamma):
+    gamma_inv = 1.0 / gamma
+    # 生成一个表,表的内容为,像素值对应的gamma变换后的值
+    table = np.array([((i / 255.0) ** gamma_inv) * 255 for i in range(256)]).astype(np.uint8)
+    return cv2.LUT(image, table)  # 查表并修改图片
+
+
 def get_data():  # 获取数据
-    val_index = [34, 42, 23, 2, 12]  # 验证集的下表
+    # 验证集的下标
+    val_index = [34,  # 70
+                 32,  # 40
+                 46,  # 10
+                 23,  # 20
+                 12,  # 3
+                 2  # 2
+                 ]
     train_data = []
     train_label = []
     val_data = []
@@ -31,11 +47,11 @@ def get_data():  # 获取数据
         # 先做四分类
         if fat < 5:
             fatclass = 0  # 无脂肪肝
-        elif 5 <= fat <= 27:
+        elif 5 <= fat <= 33:
             fatclass = 1  # 轻度脂肪肝
-        elif 28 <= fat <= 45:  # 55
+        elif 34 <= fat <= 66:  # 55
             fatclass = 2  # 中度脂肪肝
-        elif 46 <= fat:  # 56
+        elif 67 <= fat:  # 56
             fatclass = 3  # 重度脂肪肝
         # 数据增强
         transform = transforms.Compose([
@@ -47,37 +63,31 @@ def get_data():  # 获取数据
         # 进行伽马变换
         # gamma变换的gamma值
         gamma_value = 2
-        gamma_transform = transforms.Compose([
-            transforms.Lambda(lambda x: ((x/255.0) ** gamma_value)*255),  # x的gamma_value次方
-            transforms.ToTensor(),
-        ])
+        # gamma_transform = transforms.Compose([
+        #     transforms.Lambda(lambda x: ((x/255.0) ** gamma_value)*255),  # x的gamma_value次方
+        #     transforms.ToTensor(),
+        #     # unsupported operand type(s) for /: 'Image' and 'float'
+        # ])
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
         # print('编号为%d的病人fat程度%d  fat种类%d' % (i, fat, fatclass))
         for img in img_batch:
             or_img = img  # 原图
             img = np.expand_dims(img, axis=0)  # 增维
             img = np.tile(img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+            img = gamma_correction(img, gamma_value)
             try:
                 if i in val_index:  # 抽取验证集
                     val_data.append(img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
                     val_label.append(fatclass)
                 else:
                     img_comb = [img]  # 原图和数据增强的集合
-                    if 26 <= fat <= 45:  # 55
-                        img_comb.append(img)
-                        img_comb.append(img)
-                        img_comb.append(img)
-                    # if 26 <= fat <= 35:  # 55
-                    #     img_comb.append(img)
-                    #     img_comb.append(img)
-                    PIL_image = Image.fromarray(or_img)  # ndarray转PIL图片，还在最前面加了1维
+                    or_img = gamma_correction(or_img, gamma_value)
+                    PIL_image = Image.fromarray(or_img)  # ndarray转PIL图片
                     trans_img = transform(PIL_image)  # 数据增强
-                    trans_img = np.tile(trans_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
+                    trans_img = np.tile(trans_img, (3, 1, 1))
                     img_comb.append(trans_img)  # 将数据增强图加进去
-                    # gamma_img = gamma_transform(or_img)  # gamma变换
-                    # gamma_img = np.tile(gamma_img, (3, 1, 1))  # 灰度图重复三次变成rgb形式
-                    # img_comb.append(gamma_img)  # 将gamma变换数据增强图加进d去
-                    # print("gamma变换后的shape", gamma_img.shape)
+                    # print("gamma变换后的shape", img.shape)
+                    # print("trans_img的shape", trans_img.shape)
                     for train_img in img_comb:
                         # print("train_img的格式 :", train_img.shape)
                         train_data.append(train_img.astype(np.float32))  # 原始图片数据是int类型的，之后的处理需要float类型
@@ -103,11 +113,11 @@ def get_all_data():  # 获取数据
         # 先做四分类
         if fat < 5:
             fatclass = 0  # 无脂肪肝
-        elif 5 <= fat <= 27:
+        elif 5 <= fat <= 24:
             fatclass = 1  # 轻度脂肪肝
-        elif 28 <= fat <= 45:  # 55
+        elif 25 <= fat <= 44:  # 55
             fatclass = 2  # 中度脂肪肝
-        elif 46 <= fat:  # 56
+        elif 45 <= fat:  # 56
             fatclass = 3  # 重度脂肪肝
 
         img_batch = matdata['images']  # 每组图片为10张434*636的灰度图
@@ -190,6 +200,7 @@ fat程度为1的共3人
 fat程度为2的共8人
 fat程度为3的共3人
 fat程度为4的共1人
+# 17
 fat程度为5的共1人
 fat程度为7的共1人
 fat程度为10的共4人
@@ -197,11 +208,14 @@ fat程度为15的共3人
 fat程度为20的共7人
 fat程度为25的共3人
 fat程度为30的共1人
+# 20
 fat程度为40的共3人
 fat程度为50的共3人
 fat程度为55的共2人
+# 8
 fat程度为70的共5人
 fat程度为75的共2人
 fat程度为80的共2人
 fat程度为85的共1人
+# 10
 """
