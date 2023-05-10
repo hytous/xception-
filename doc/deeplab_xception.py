@@ -42,7 +42,7 @@ class SeparableConv2d_same(nn.Module):  # 自动计算padding的大小，图片�
         super(SeparableConv2d_same, self).__init__()
 
         self.conv1 = nn.Conv2d(inplanes, inplanes, kernel_size, stride, 0, dilation,
-                               groups=inplanes, bias=bias)
+                               groups=inplanes, bias=bias)  # 一个卷积核对应一个channel
         self.pointwise = nn.Conv2d(inplanes, planes, 1, 1, 0, 1, 1, bias=bias)
 
     def forward(self, x):
