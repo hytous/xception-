@@ -14,22 +14,27 @@ def conv_bn(inp, oup, stride, BatchNorm):
     )
 
 
-def fixed_padding(inputs, kernel_size, dilation):
-    kernel_size_effective = kernel_size + (kernel_size - 1) * (dilation - 1)
-    pad_total = kernel_size_effective - 1
-    pad_beg = pad_total // 2
-    pad_end = pad_total - pad_beg
+def fixed_padding(inputs, kernel_size, dilation):  # 为了使输入输出大小相同，要进行pad（比如行、列补0）操作，处理的是行列数相同的kernal
+    # 调用此函数可以自动计算padding的大小
+    kernel_size_effective = kernel_size + (kernel_size - 1) * (dilation - 1)  # 计算卷积核的作用域大小
+    pad_total = kernel_size_effective - 1  # 为了偶数kernal的pad大小的计算
+    pad_beg = pad_total // 2 # kernal大小除2得出要补的大小
+    pad_end = pad_total - pad_beg  # 也是为了偶数kernal计算的，在后面多补一行或列
     padded_inputs = F.pad(inputs, (pad_beg, pad_end, pad_beg, pad_end))
     return padded_inputs
 
 
-class InvertedResidual(nn.Module):
+class InvertedResidual(nn.Module):  # 倒残差结构
+    # 1*1卷积升维
+    # 3*3深度卷积卷积（将
+    # 1*1卷积降维
+    # 普通的残差结构是现降维再升维
     def __init__(self, inp, oup, stride, dilation, expand_ratio, BatchNorm):
         super(InvertedResidual, self).__init__()
         self.stride = stride
         assert stride in [1, 2]
 
-        hidden_dim = round(inp * expand_ratio)
+        hidden_dim = round(inp * expand_ratio)  # 膨胀后通道数
         self.use_res_connect = self.stride == 1 and inp == oup
         self.kernel_size = 3
         self.dilation = dilation
@@ -46,7 +51,7 @@ class InvertedResidual(nn.Module):
             )
         else:
             self.conv = nn.Sequential(
-                # pw
+                # pw  先膨胀再卷积
                 nn.Conv2d(inp, hidden_dim, 1, 1, 0, 1, bias=False),
                 BatchNorm(hidden_dim),
                 nn.ReLU6(inplace=True),
@@ -88,8 +93,8 @@ class MobileNetV2(nn.Module):
 
         # building first layer
         input_channel = int(input_channel * width_mult)
-        self.features = [conv_bn(1, input_channel, 2, BatchNorm)]
-        # self.features = [conv_bn(3, input_channel, 2, BatchNorm)]
+        # self.features = [conv_bn(1, input_channel, 2, BatchNorm)]
+        self.features = [conv_bn(3, input_channel, 2, BatchNorm)]
         current_stride *= 2
         # building inverted residual blocks
         for t, c, n, s in interverted_residual_setting:
@@ -110,7 +115,7 @@ class MobileNetV2(nn.Module):
                 input_channel = output_channel
         self.features = nn.Sequential(*self.features)
 
-        self.fc = nn.Linear(320, 4, bias=False)  # 2048通道对应到4类
+        self.fc = nn.Linear(320, 4, bias=False)  # 320通道对应到4类
 
         self._initialize_weights()
 
@@ -123,12 +128,13 @@ class MobileNetV2(nn.Module):
     def forward(self, x):
         low_level_feat = self.low_level_features(x)
         x = self.high_level_features(low_level_feat)
+        high_level_feat = x
 
         x = F.adaptive_avg_pool2d(x, (1, 1))
         x = x.view(x.size(0), -1)
         x = self.fc(x)  # 全连接层
 
-        return x, low_level_feat
+        return x, high_level_feat
 
     def _load_pretrained_model(self):
         pretrain_dict = model_zoo.load_url('http://jeff95.me/models/mobilenet_v2-6a65762b.pth')
