@@ -7,7 +7,6 @@ from matplotlib import pyplot as plt
 from torchvision.utils import make_grid
 from tensorboardX import SummaryWriter
 from tqdm.contrib import itertools
-from dataloaders.utils import decode_seg_map_sequence
 
 
 class TensorboardSummary(object):

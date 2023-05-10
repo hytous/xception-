@@ -13,7 +13,6 @@ from utils.lr_scheduler import LR_Scheduler
 from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
-from utils.plt import draw_fig
 # # 全局取消证书验证
 # import ssl
 # ssl._create_default_https_context = ssl._create_unverified_context

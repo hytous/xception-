@@ -15,8 +15,6 @@ from utils.saver import Saver
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
 from utils.GradCAM import GradCam
-from utils.plt import draw_fig
-
 
 # # 全局取消证书验证
 # import ssl

@@ -15,7 +15,6 @@ from utils.calculate_weights import calculate_weigths_labels
 from utils.lr_scheduler import LR_Scheduler
 from utils.summaries import TensorboardSummary
 from utils.metrics import Evaluator
-from utils.plt import draw_fig
 
 
 class TrainedModleValidator(object):
