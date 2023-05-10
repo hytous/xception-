@@ -43,13 +43,17 @@ class GradCam:
             # 此处batch size默认为1，所以去掉了第0维（batch size维）
             # print('pooled_grads:', pooled_grads.shape)  # [1, 2048, 28, 40])
             pooled_grads = pooled_grads[0]
+            # print(pooled_grads.shape)  # MobileNetV2[320, 28, 40]
             # print('pooled_grads:', pooled_grads.shape)  # [2048, 28, 40])
             feature = feature[0]
             # print(feature.shape)
             # 最后一层feature的通道数
-            for j in range(2048):
-                feature[j, ...] *= pooled_grads[j, ...]
-
+            if pooled_grads.shape[0] == 2048:
+                for j in range(2048):
+                    feature[j, ...] *= pooled_grads[j, ...]
+            else:
+                for j in range(pooled_grads.shape[0]):
+                    feature[j, ...] *= pooled_grads[j, ...]
             heatmap = feature.detach().cpu().numpy()
             heatmap = np.mean(heatmap, axis=0)
             # print(heatmap)
