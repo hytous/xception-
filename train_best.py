@@ -1,6 +1,7 @@
 import argparse
 import os
 import numpy as np
+import datetime  # 输出时间
 from tqdm import tqdm
 
 from mypath import Path
@@ -210,7 +211,7 @@ class Trainer(object):
         Acc = self.evaluator.Accuracy()  # 准确率
         Acc_class = self.evaluator.Accuracy_Class()  # 不同类各自的准确率
         confusion_matrix = self.evaluator.back_matrix()  # 获得混淆矩阵
-        class_names = ['health', 'mild', 'moderate', 'severe']  # 健康 轻度 中度 重度
+        # class_names = ['health', 'mild', 'moderate', 'severe']  # 健康 轻度 中度 重度
         # subset_ids = list(range(4))
         # 绘制混淆矩阵
         self.summary.visualize_confusion_matrix(writer=self.writer,
@@ -222,7 +223,7 @@ class Trainer(object):
         self.writer.add_scalar('验证/准确率', Acc, epoch)
         self.writer.add_scalar('验证/类准确率', Acc_class, epoch)
         print('验证结果:')
-        print('[第%d代, 图片数:%5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
+        print('[第%d代, 图片数:%5d]' % (epoch, i * self.args.test_batch_size + image.data.shape[0]))
         print("准确率:{}, 类准确率:{}".format(Acc, Acc_class))
         print('Loss: %.3f' % test_loss)
 
@@ -338,7 +339,7 @@ def main():
                         metavar='N', help='input batch size for \
                                 training (default: auto)')
     # 测试时batch的大小
-    parser.add_argument('--test-batch-size', type=int, default=5,
+    parser.add_argument('--test-batch-size', type=int, default=10,
                         metavar='N', help='input batch size for \
                                 testing (default: auto)')
     # 训练数据样本不均衡（比如某类样本占80%）时使用
@@ -393,6 +394,9 @@ def main():
     # 在训练中跳过验证操作
     parser.add_argument('--no-val', action='store_true', default=False,
                         help='skip validation during training')
+    # 训练起始时间
+    parser.add_argument('--start-time', type=str, default=None,
+                        help='training start time')
 
     """
     最后采用对象的parse_args获取解析的参数。
@@ -414,7 +418,7 @@ def main():
     # default settings for epochs, batch_size and lr 设置迭代次数、batch大小、学习率的默认值
     if args.epochs is None:  # 设置在不同数据集上迭代次数的默认值
         epoches = {
-            'fattyliver': 500,  # 脂肪肝训练代数
+            'fattyliver': 1000,  # 脂肪肝训练代数
         }
         args.epochs = epoches[args.dataset.lower()]  # lower()方法转换字符串中所有大写字符为小写
 
@@ -429,7 +433,7 @@ def main():
         lrs = {
             'fattyliverresnet': 0.07,
             # 'fattyliver': 0.0007,
-            'fattyliver': 0.007,
+            'fattyliver': 0.002,
         }
         # .lower()英文全转为小写
         # args.lr = lrs[args.dataset.lower()] / (4 * len(args.gpu_ids)) * args.batch_size
@@ -439,17 +443,21 @@ def main():
     #     args.checkname = 'deeplab-' + str(args.backbone)  # deeplab+算法骨架
     if args.checkname is None:
         args.checkname = str(args.backbone)  # 算法骨架
+    # 写入算法开始时间
+    args.start_time = str(datetime.datetime.now())
     print(args)
     torch.manual_seed(args.seed)
     trainer = Trainer(args)
     print('起始代:', trainer.args.start_epoch)  # 开始迭代 默认从第0代开始
     print('总迭代次数:', trainer.args.epochs)  # 总迭代次数
     print("是否使用cuda", trainer.args.cuda)
+    print("训练开始时间为:", datetime.datetime.now())
     for epoch in range(trainer.args.start_epoch, trainer.args.epochs):
         trainer.training(epoch)
         # 如果不跳过评估阶段，并且到该评估的epoch了
         if not trainer.args.no_val and epoch % args.eval_interval == (args.eval_interval - 1):
             trainer.validation(epoch)  # 评估一下
+    print("训练结束时间为:", datetime.datetime.now())
     trainer.writer.close()
 
 
