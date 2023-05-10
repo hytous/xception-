@@ -67,7 +67,9 @@ class TensorboardSummary(object):
         plt.xticks(tick_marks, class_names, rotation=45)
         plt.yticks(tick_marks, class_names)
 
+        # 往混淆矩阵的方块上写数字
         # Use white text if squares are dark; otherwise black.
+        # 高于中间值字就是白色,低于中间值字就是黑色
         threshold = confusion_matrix.max() / 2.0
         for i, j in itertools.product(range(confusion_matrix.shape[0]), range(confusion_matrix.shape[1])):
             color = "white" if confusion_matrix[i, j] > threshold else "black"
