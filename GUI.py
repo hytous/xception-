@@ -32,7 +32,8 @@ model = torch.load(r'D:\S\study\four\graduateDesign\mode\resnet1000\checkpoint.p
 我们首先创建了一个名为`root`的主窗口对象，并定义了一个`image_path`变量来存储所选图像的路径。
 """
 root = Tk()
-root.title("Fatty Liver Image Classifier")
+# root.title("Fatty Liver Image Classifier")
+root.title("脂肪肝诊断")
 
 image_path = ''
 
@@ -77,14 +78,16 @@ def classify_image():
     # img = Image.open(image_path)
     img = np.array(Image.open(image_path))  # [480, 640, 3]
     # img = img.resize((3, 434, 636))  # 434, 636
+
     # 进行gamma变换
     gamma_value = 2
     img = gamma_correction(img, gamma_value)
-    # 显示gamma变换后的图像
-    img_pil = Image.fromarray(img.astype('uint8'))
-    photo = ImageTk.PhotoImage(img_pil)
-    enhance_image.config(image=photo)
-    enhance_image.image = photo
+    # # 显示gamma变换后的图像
+    # img_pil = Image.fromarray(img.astype('uint8'))
+    # photo = ImageTk.PhotoImage(img_pil)
+    # enhance_image.config(image=photo)
+    # enhance_image.image = photo
+
     # 将图片转为模型需要的格式
     img = np.swapaxes(img, 0, 2)  # 交换第一维和第三维，把色彩通道放到前面
     img = np.swapaxes(img, 1, 2)  # 交换第二维和第三维，把长宽弄正确位置
@@ -101,20 +104,44 @@ def classify_image():
         predicted_class = np.argmax(outputs, axis=1)  # 选出概率最大的作为预测结果
         # predicted_class = torch.argmax(outputs[0])
         predicted_class = int(predicted_class)  # 取出tensor里的数字
-        class_names = ['health', 'mild', 'moderate', 'severe']  # 健康 轻度 中度 重度
+
+        # 显示建议
+        # 清空text控件
+        tips.delete('1.0', END)
+        # 根据不同的预测结果显示不同的文字
+        if predicted_class == 0:
+            # 设置字体颜色等
+            tips.tag_config('tag_s', foreground='blue', font=("Helvetica", 20))
+            # 显示文本
+            tips.insert(INSERT, "并无脂肪肝症状，您的肝非常健康", 'tag_s')
+        elif predicted_class == 1:
+            tips.tag_config('tag_s', foreground='green', font=("Helvetica", 20))
+            tips.insert(INSERT, "诊断为轻度脂肪肝，请合理膳食、适度运动、戒酒、保持良好心态、谨慎用药，并定期复查", 'tag_s')
+        elif predicted_class == 2:
+            tips.tag_config('tag_s', foreground='orange', font=("Helvetica", 20))
+            tips.insert(INSERT, "诊断为中度脂肪肝，请在生活调节的同时结合药物进行治疗！", 'tag_s')
+        elif predicted_class == 3:
+            tips.tag_config('tag_s', foreground='red', font=("Helvetica", 20))
+            tips.insert(INSERT, "诊断为重度脂肪肝，请积极配合医生进行治疗！！！", 'tag_s')
+
+        # class_names = ['health', 'mild', 'moderate', 'severe']  # 健康 轻度 中度 重度
+        class_names = ['健康', '轻度', '中度', '重度']  # 健康 轻度 中度 重度
         predicted_class = class_names[predicted_class]
     # Display predicted class
-    label_class.config(text='Predicted class: ' + str(predicted_class))
-    gradcam = GradCam(model)
-    Gram_img = gradcam.__call__(img)  # 画热力图,结果为tensor
-    # 转为pil图片
-    Gram_img = Gram_img.squeeze(dim=0)
-    img_pil = Image.fromarray((Gram_img.permute(1, 2, 0).numpy()).astype('uint8'))
-    photo = ImageTk.PhotoImage(img_pil)
-    # 在GUI上显示选择的图像
-    Gram_image.config(image=photo)
-    # 存一下，要不被释放了就不显示了
-    Gram_image.image = photo
+    # label_class.config(text='Predicted class: ' + str(predicted_class))
+    label_class.config(text='诊断结果: ' + str(predicted_class))
+
+    # 热力图
+    # gradcam = GradCam(model)
+    # Gram_img = gradcam.__call__(img)  # 画热力图,结果为tensor
+    # # 转为pil图片
+    # Gram_img = Gram_img.squeeze(dim=0)
+    # img_pil = Image.fromarray((Gram_img.permute(1, 2, 0).numpy()).astype('uint8'))
+    # photo = ImageTk.PhotoImage(img_pil)
+    # # 在GUI上显示选择的图像
+    # Gram_image.config(image=photo)
+    # # 存一下，要不被释放了就不显示了
+    # Gram_image.image = photo
 
 
 def get_model():
@@ -152,17 +179,19 @@ if __name__ == "__main__":
     # 原图
     org_image = Label(frame)
     org_image.pack(side=LEFT)
-    # 增强后的图像
-    enhance_image = Label(frame)
-    enhance_image.pack(side=LEFT)
-    # 热力图
-    Gram_image = Label(frame)
-    Gram_image.pack(side=LEFT)
+    # # 增强后的图像
+    # enhance_image = Label(frame)
+    # enhance_image.pack(side=LEFT)
+    # # 热力图
+    # Gram_image = Label(frame)
+    # Gram_image.pack(side=LEFT)
 
-    btn_load = Button(root, text="Load Image", command=load_image)
+    # btn_load = Button(root, text="Load Image", command=load_image)
+    btn_load = Button(root, text="加载图片", command=load_image)
     btn_load.pack(pady=10)
 
-    btn_classify = Button(root, text="Classify Image", state='disabled', command=classify_image)
+    # btn_classify = Button(root, text="Classify Image", state='disabled', command=classify_image)
+    btn_classify = Button(root, text="进行诊断", state='disabled', command=classify_image)
     btn_classify.pack(pady=10)
 
     # 定义字体、大小
@@ -170,6 +199,9 @@ if __name__ == "__main__":
     # 在labol中应用该字体
     label_class = Label(root, text='', font=font)
     label_class.pack(pady=10)
+
+    tips = Text(root, height=10, width=50)
+    tips.pack()
 
     # 循环
     root.mainloop()
